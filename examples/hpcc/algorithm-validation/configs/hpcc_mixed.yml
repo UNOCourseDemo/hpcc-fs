@@ -1,0 +1,61 @@
+# Mini validation config: HPCC on staggered bidirectional flows with tracing.
+enable_qcn: true
+use_dynamic_pfc_threshold: true
+pause_time: 5
+packet_payload_size: 1000
+l2_chunk_size: 4000
+l2_ack_interval: 1
+l2_back_to_zero: false
+topology_file: algorithm-validation/topologies/two_switch_6host.txt
+flow_file: algorithm-validation/flows/staggered_mixed.txt
+trace_file: algorithm-validation/traces/all_nodes.txt
+trace_output_file: algorithm-validation/output/hpcc_mixed/trace.tr
+fct_output_file: algorithm-validation/output/hpcc_mixed/fct.txt
+pfc_output_file: algorithm-validation/output/hpcc_mixed/pfc.txt
+bottleneck_output_file: algorithm-validation/output/hpcc_mixed/bottleneck.txt
+simulator_stop_time: 0.2
+cc_mode: 3
+alpha_resume_interval: 1.0
+rate_decrease_interval: 4.0
+clamp_target_rate: false
+rp_timer: 300.0
+ewma_gain: 0.00390625
+fast_recovery_times: 1
+rate_ai: 40Mb/s
+rate_hai: 40Mb/s
+min_rate: 1000Mb/s
+dctcp_rate_ai: 1000Mb/s
+error_rate_per_link: 0.0
+has_win: 1
+global_t: 1
+var_win: true
+fast_react: true
+u_target: 0.95
+mi_thresh: 0
+int_multi: 4
+multi_rate: false
+sample_feedback: false
+pint_log_base: 1.05
+pint_prob: 1.0
+rate_bound: true
+ack_high_prio: 0
+link_down:
+  time: 0
+  from_node: 0
+  to_node: 0
+enable_trace: 1
+kmax_map:
+  25000000000: 400
+  100000000000: 1600
+kmin_map:
+  25000000000: 100
+  100000000000: 400
+pmax_map:
+  25000000000: 0.2
+  100000000000: 0.2
+buffer_size: 4
+qlen_mon_file: algorithm-validation/output/hpcc_mixed/qlen.txt
+qlen_dump_interval: 1000000
+qlen_mon_interval: 10000
+qlen_mon_start: 0
+qlen_mon_end: 200000000

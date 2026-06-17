@@ -1,0 +1,93 @@
+# =============================================================================
+# HPCC Simulation Configuration (YAML format)
+# =============================================================================
+
+# --- Congestion Control ---
+cc_mode: 3                           # 1: DCQCN, 3: HPCC, 7: TIMELY, 8: DCTCP, 10: HPCC-PINT
+enable_qcn: true
+use_dynamic_pfc_threshold: true
+clamp_target_rate: false
+
+# --- Packet / L2 Settings ---
+pause_time: 5                         # PFC pause duration in microseconds
+packet_payload_size: 1000
+l2_chunk_size: 4000
+l2_ack_interval: 1
+l2_back_to_zero: false
+
+# --- Input / Output Files ---
+topology_file: "mix/topology.txt"
+flow_file: "mix/flow.txt"
+trace_file: "mix/trace.txt"
+trace_output_file: "mix/mix.tr"
+fct_output_file: "mix/fct.txt"
+pfc_output_file: "mix/pfc.txt"
+bottleneck_output_file: "mix/bottleneck.txt"
+
+# --- Simulation ---
+simulator_stop_time: 4.00
+
+# --- Rate Control (DCQCN / HPCC parameters) ---
+alpha_resume_interval: 1.0
+rate_decrease_interval: 4.0
+rp_timer: 900.0
+ewma_gain: 0.00390625
+fast_recovery_times: 1
+rate_ai: "50Mb/s"
+rate_hai: "100Mb/s"
+min_rate: "100Mb/s"
+dctcp_rate_ai: "1000Mb/s"
+
+# --- Error ---
+error_rate_per_link: 0.0000
+
+# --- Window / INT ---
+has_win: 1
+global_t: 1
+var_win: true
+fast_react: true
+u_target: 0.95
+mi_thresh: 0
+int_multi: 1
+multi_rate: false
+sample_feedback: false
+pint_log_base: 1.05
+pint_prob: 1.0
+rate_bound: true
+
+# --- ACK Priority ---
+ack_high_prio: 0
+
+# --- Link Down Event ---
+# time=0 from_node=0 to_node=0 means no link-down event
+link_down:
+  time: 0
+  from_node: 0
+  to_node: 0
+
+# --- Trace ---
+enable_trace: 1
+
+# --- ECN Threshold Maps (link bandwidth in bps -> threshold value) ---
+kmax_map:
+  25000000000: 400
+  50000000000: 800
+  100000000000: 1600
+
+kmin_map:
+  25000000000: 100
+  50000000000: 200
+  100000000000: 400
+
+pmax_map:
+  25000000000: 0.2
+  50000000000: 0.2
+  100000000000: 0.2
+
+# --- Buffer / Queue Monitoring ---
+buffer_size: 32
+qlen_mon_file: "mix/qlen.txt"
+qlen_dump_interval: 100000000
+qlen_mon_interval: 100
+qlen_mon_start: 2000000000
+qlen_mon_end: 2010000000

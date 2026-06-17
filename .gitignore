@@ -1,0 +1,82 @@
+*.diff
+*.orig
+*.patch
+*.rej
+
+*.o
+*.pyc
+*.pyo
+
+*.cwnd
+*.dat
+*.log
+*.mob
+*.pcap
+*.plt
+*.routes
+*.tr
+[D|U]l[A-Z][a-z]*Stats.txt
+
+\#*#
+*~
+
+testpy-output
+
+bindings/python/pybindgen/
+
+venv/
+
+ms_print.*
+massif.*
+coverity
+TAGS
+
+.lock-ns3_*
+.ns3rc
+
+build-dir/
+build/
+/.cproject
+/.project
+
+version.cache
+
+.gitlab-ci-local/
+.idea/
+cmake-*/
+vcpkg/
+
+.vs/
+
+# Ignore local cache used by e.g. clangd
+.cache/
+
+# HPCC paper simulation outputs (generated, large files)
+examples/hpcc/paper-simulations/output/
+examples/hpcc/paper-simulations/traffic/
+
+# Research-extension generated outputs (regenerable)
+examples/hpcc/follow-on/a/output/
+examples/hpcc/hpcc-fs/output/
+
+# Python bytecode caches
+__pycache__/
+
+# LaTeX build artifacts (paper.log already covered by *.log above)
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+*.lof
+*.lot
+
+# Stale git internals
+.git-rewrite/
+
+# HPCC-FS generated inputs (regenerable via gen_*.py / run_sensitivity.py / make_figures.py).
+# Tracked sources: the gen_*.py generators + the driver scripts. Reviewers regenerate from those.
+examples/hpcc/hpcc-fs/configs/
+examples/hpcc/hpcc-fs/flows/
+examples/hpcc/hpcc-fs/topologies/
+examples/hpcc/hpcc-fs/traces/

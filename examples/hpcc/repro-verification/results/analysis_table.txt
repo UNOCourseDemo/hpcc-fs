@@ -1,0 +1,59 @@
+# Repro-verification analysis  (raw = results/raw)
+
+
+## WS  30% load   (short flow = <3KB)
+    scheme    flows  short_n |  p99_all  p99_short  p50_short  mean_all |    PFC  peakQ_KB
+      hpcc    70292     3135 |     4.79       1.62       1.01      1.61 |      0       328
+     dcqcn    70292     3135 |     6.99       8.15       1.01      1.95 |      0      3475
+    timely    70292     3135 |     9.05      12.31       1.01      2.08 |      0      6018
+     dctcp    70292     3135 |     5.09       3.84       1.01      1.69 |      0      1167
+ hpcc_pint    70292     3135 |     4.45       1.79       1.00      1.53 |      0       402
+
+## WS  50% load   (short flow = <3KB)
+    scheme    flows  short_n |  p99_all  p99_short  p50_short  mean_all |    PFC  peakQ_KB
+      hpcc   116703     5205 |    10.20       1.92       1.03      2.46 |      0       410
+     dcqcn   116703     5205 |    11.95      13.72       1.23      3.28 |      0      4551
+    timely   116703     5205 |    15.46      18.26       1.08      3.47 |     78     12868
+     dctcp   116703     5205 |     9.56       5.66       1.34      2.68 |      0      1411
+ hpcc_pint   116703     5205 |     9.06       2.08       1.03      2.24 |      0       480
+
+## WS  70% load   (short flow = <3KB)
+    scheme    flows  short_n |  p99_all  p99_short  p50_short  mean_all |    PFC  peakQ_KB
+      hpcc   163982     7413 |    26.62       2.00       1.08      4.87 |      0       395
+     dcqcn   163982     7413 |    24.58      23.72       3.80      6.32 |      0      7106
+    timely   163062     7367 |   202.86     273.16       7.69     27.69 | 655962     26351
+     dctcp   163982     7413 |    19.97       7.69       2.52      4.94 |      0      1588
+ hpcc_pint   163982     7413 |    22.38       2.32       1.09      3.88 |      0       497
+
+## FB  30% load   (short flow = <120KB)
+    scheme    flows  short_n |  p99_all  p99_short  p50_short  mean_all |    PFC  peakQ_KB
+      hpcc   995865   895882 |     3.10       2.27       1.01      1.21 |      0       492
+     dcqcn   995865   895882 |     7.51       7.69       1.01      1.63 |      0      2585
+    timely   995865   895882 |    11.50      11.94       1.01      1.83 |      0     10639
+     dctcp   995865   895882 |     3.75       3.55       1.01      1.34 |      0      1156
+ hpcc_pint   995865   895882 |     2.97       2.29       1.00      1.19 |      0       544
+
+## FB  50% load   (short flow = <120KB)
+    scheme    flows  short_n |  p99_all  p99_short  p50_short  mean_all |    PFC  peakQ_KB
+      hpcc  1660956  1494840 |     5.86       3.28       1.08      1.50 |      0       617
+     dcqcn  1660956  1494840 |    14.30      14.64       1.61      2.94 |      0      7290
+    timely  1660956  1494840 |    19.42      20.10       1.44      3.09 |    714     20068
+     dctcp  1660956  1494840 |     6.06       5.33       1.38      1.90 |      0      1443
+ hpcc_pint  1660956  1494840 |     5.20       3.20       1.10      1.48 |      0       653
+
+## FB  70% load   (short flow = <120KB)
+    scheme    flows  short_n |  p99_all  p99_short  p50_short  mean_all |    PFC  peakQ_KB
+      hpcc  2324435  2092982 |    21.53       6.06       1.23      2.33 |      0       634
+     dcqcn  2324435  2092982 |    30.26      30.60       4.94      6.84 |      0         0
+    timely  2316323  2085710 |   216.52     221.86      16.84     37.18 | 1123760     25396
+     dctcp  2324435  2092982 |    12.00       8.44       2.50      3.13 |      0      1864
+ hpcc_pint  2324435  2092982 |    13.53       5.00       1.30      2.09 |      0       828
+
+
+# Paper-trend checks (qualitative)
+  ws 30%: HPCC short-flow p99=1.62 vs DCQCN=8.15  -> HPCC < DCQCN  [PASS]
+  ws 50%: HPCC short-flow p99=1.92 vs DCQCN=13.72  -> HPCC < DCQCN  [PASS]
+  ws 70%: HPCC short-flow p99=2.00 vs DCQCN=23.72  -> HPCC < DCQCN  [PASS]
+  fb 30%: HPCC short-flow p99=2.27 vs DCQCN=7.69  -> HPCC < DCQCN  [PASS]
+  fb 50%: HPCC short-flow p99=3.28 vs DCQCN=14.64  -> HPCC < DCQCN  [PASS]
+  fb 70%: HPCC short-flow p99=6.06 vs DCQCN=30.60  -> HPCC < DCQCN  [PASS]

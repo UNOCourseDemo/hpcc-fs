@@ -1,0 +1,67 @@
+# HPCC Paper Simulation Config
+# Scheme:   HPCC_PINT (cc_mode=10)
+# Workload: Web Search
+# Load:     70%
+# Topology: mix/fat.txt (320 servers, fat-tree)
+# Bandwidth: 100 Gbps
+
+enable_qcn: true
+use_dynamic_pfc_threshold: true
+pause_time: 5
+packet_payload_size: 1000
+l2_chunk_size: 4000
+l2_ack_interval: 1
+l2_back_to_zero: false
+topology_file: mix/fat.txt
+trace_file: mix/trace.txt
+simulator_stop_time: 4.0
+clamp_target_rate: false
+fast_recovery_times: 1
+error_rate_per_link: 0.0
+global_t: 1
+multi_rate: false
+sample_feedback: false
+pint_log_base: 1.05
+pint_prob: 1.0
+rate_bound: true
+link_down:
+  time: 0
+  from_node: 0
+  to_node: 0
+enable_trace: 0
+qlen_dump_interval: 100000000
+qlen_mon_interval: 100
+qlen_mon_start: 2000000000
+qlen_mon_end: 3000000000
+cc_mode: 10
+alpha_resume_interval: 1.0
+rate_decrease_interval: 4.0
+rp_timer: 300.0
+ewma_gain: 0.00390625
+rate_ai: 40Mb/s
+rate_hai: 40Mb/s
+min_rate: 1000Mb/s
+dctcp_rate_ai: 1000Mb/s
+has_win: 1
+var_win: true
+fast_react: true
+u_target: 0.95
+mi_thresh: 0
+int_multi: 4
+ack_high_prio: 0
+flow_file: paper-simulations/traffic/flow_ws_70.txt
+trace_output_file: paper-simulations/output/hpcc_pint_ws_70/trace.tr
+fct_output_file: paper-simulations/output/hpcc_pint_ws_70/fct.txt
+pfc_output_file: paper-simulations/output/hpcc_pint_ws_70/pfc.txt
+bottleneck_output_file: paper-simulations/output/hpcc_pint_ws_70/bottleneck.txt
+qlen_mon_file: paper-simulations/output/hpcc_pint_ws_70/qlen.txt
+kmax_map:
+  100000000000: 1600
+  400000000000: 6400
+kmin_map:
+  100000000000: 400
+  400000000000: 1600
+pmax_map:
+  100000000000: 0.2
+  400000000000: 0.2
+buffer_size: 32
