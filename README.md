@@ -24,7 +24,8 @@ load-bearing), and an HPCC-PINT baseline (1.77–1.88× — a smaller INT footpr
 > - **Project page:** <https://unocoursedemo.github.io/hpcc-fs/>
 > - **Baseline reproduction** of the original HPCC (5 schemes × 2 workloads × 3 loads on a
 >   376-node fat-tree): [`examples/hpcc/repro-verification/`](examples/hpcc/repro-verification/)
-> - **Raw simulation data** (3.5 GB → 625 MB zstd) — public archive on
+> - **Simulation results** (per-run `config.yml` + final outputs `fct`/`pfc`/`bottleneck`/`qlen`,
+>   554 MB zstd, no per-run logs) — public archive on
 >   [OneDrive](https://1drv.ms/f/c/6052297178cce52b/IgAsSQ7gNfdhQrNejod27CpkAYQs8xZs4QtGc_KKVWZjQLs?e=b0mS1t);
 >   details in [`examples/hpcc/repro-verification/RESULTS.md`](examples/hpcc/repro-verification/RESULTS.md).
 

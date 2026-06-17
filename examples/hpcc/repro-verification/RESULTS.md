@@ -12,10 +12,10 @@ the FCT / queue / PFC behavior matches the paper's qualitative story. Raw per-fl
 - Canonical `paper-hpcc-fs` engine, run on frcc/frcc2 in `~/uno-hpcc-repro`; traffic frozen +
   identical across VMs (one unseeded draw per workload/load, shared by all 5 schemes).
 - Metric: **FCT slowdown = fct / standalone_fct** per flow; "short flow" = <3 KB (ws) / <120 KB (fb).
-- **Raw data (public):** all 30 configs' per-flow outputs (`fct`/`pfc`/`bottleneck`/`qlen`/`sim.log`;
-  3.5 GB, 625 MB zstd) are archived on OneDrive —
+- **Public archive:** each run's configuration + final results (`config.yml` + `fct`/`pfc`/
+  `bottleneck`/`qlen`; 554 MB zstd → 2.2 GB; per-run `sim.log` logs excluded) are on OneDrive —
   <https://1drv.ms/f/c/6052297178cce52b/IgAsSQ7gNfdhQrNejod27CpkAYQs8xZs4QtGc_KKVWZjQLs?e=b0mS1t>
-  (extract: `zstd -dc hpcc_repro_raw.tar.zst | tar xf -`).
+  (extract: `zstd -dc hpcc_repro_results.tar.zst | tar xf -`).
 
 ## Headline: FCT slowdown + queue + PFC
 
