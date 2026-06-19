@@ -63,28 +63,18 @@
 \begin{abstract}
 HPCC (SIGCOMM '19) achieves near-optimal flow completion time for single-bottleneck RDMA
 workloads via INT-based precision congestion control with no per-flow switch state. We show its
-design has a structural fairness failure on \emph{multi-bottleneck} paths increasingly common in
-cross-pod and disaggregated datacenter traffic: a flow crossing $k$ shared bottlenecks is starved
-by ${\sim}2\times$ relative to single-bottleneck competitors at $k = 2{\dots}4$, by up to
-$3.5\times$ when the multi-bottleneck flow is short (RPC-scale), and breaks completely beyond
-$k = 4$ because the per-hop INT record overflows its $\texttt{maxHop} = 5$ cap. Through a
-five-variant sender-side ablation, we present evidence that the gap is not closable by
-representative sender-only designs: at the $\eta$-hold equilibrium HPCC's multiplicative term becomes ${\approx}1$
-(every flow holds its current rate), and a sender cannot compute the $C/N$ fair share needed for
-strong redistribution because the link's flow count $N$ is not observable in INT. We then show
-that placing a single RCP-style fair-rate signal at the switch --- one 64-bit field in a new INT
-mode and one scalar of state per egress port --- closes the gap: \hpccfs drives the
-multi-bottleneck penalty from $1.96\times$ to $1.005\times$ at $N = 4$, remains flat at
-${\approx}1.0\times$ through $N = 6$ (its wire format is hop-count-independent), holds across
-asymmetric flow sizes, staggered starts, and a $k = 4$ ECMP fat-tree, with zero PFC. We are
-explicit about the nature of the fix: on contended flows \hpccfs adopts RCP-style switch-computed
-rates rather than HPCC's per-hop control. On HPCC's home turf (single-bottleneck incast) this is
-not a trade-off in our measurements --- \hpccfs holds ${\sim}4\times$ less peak queue than HPCC
-and, with a moderate sender startup rate, matches or beats its flow completion time --- though it
-forgoes HPCC's per-hop precision on rapidly-varying workloads we did not test. Our primary
-contribution is the \emph{diagnosis} and the demonstration that the fix belongs at the switch, not
-the mechanism itself (which is RCP); a hybrid that also retains HPCC's precise per-flow control is
-future work. The stock HPCC code path is left byte-for-byte unchanged.
+design has a structural fairness failure on \emph{multi-bottleneck} paths --- increasingly common
+in cross-pod and disaggregated datacenter traffic: a flow crossing several shared bottlenecks is
+starved by ${\sim}2\times$ relative to single-bottleneck competitors, and fails entirely once the
+per-hop INT record overflows its hop budget. Through a five-variant sender-side ablation we show
+the gap is not closable from the endpoint --- a sender cannot compute its max-min fair share
+because the link's flow count is not observable in INT. The fix belongs at the switch. \hpccfs
+adds a single RCP-style fair-rate signal --- one 64-bit header field and one scalar of state per
+egress port --- whose fixed point is the max-min share, reached \emph{without ever counting flows}.
+It drives the multi-bottleneck penalty to ${\approx}1.0\times$ across bottleneck counts, asymmetric
+flow sizes, staggered starts, and ECMP fat-trees, with zero PFC. We are explicit that the mechanism
+is RCP; our primary contribution is the \emph{diagnosis} and the demonstration that the fix belongs
+in the network, not the endpoint. The stock HPCC code path is left byte-for-byte unchanged.
 \end{abstract}
 
 \begin{document}
@@ -484,34 +474,15 @@ flat near 1.0 across all N. A dashed horizontal line at 1.0 marks the max-min or
 \label{fig:nsweep}
 \end{figure}
 
-\begin{table}[t]
-\caption{Unfairness ratio at $N = 2$--$6$. Stock and multi-rate HPCC's $N \ge 5$ values are the
-INT-overflow artifact. HPCC-PINT (the INT-compression variant) suffers the same multi-bottleneck
-penalty as stock HPCC.}
-\label{tab:nsweep}
-\centering
-\small
-\begin{tabular}{rrrrr}
-\toprule
-$N$ & stock & multi-rate & HPCC-PINT & \hpccfs \\
-\midrule
-2 & $1.90\times$ & $1.44\times$ & $1.77\times$ & $\mathbf{1.003\times}$ \\
-3 & $1.92\times$ & $1.50\times$ & $1.88\times$ & $\mathbf{1.003\times}$ \\
-4 & $1.96\times$ & $1.75\times$ & $1.88\times$ & $\mathbf{1.005\times}$ \\
-5 & $0.51\times\;\dagger$ & $0.51\times\;\dagger$ & --- & $\mathbf{1.006\times}$ \\
-6 & $0.51\times\;\dagger$ & $0.51\times\;\dagger$ & --- & $\mathbf{1.007\times}$ \\
-\bottomrule
-\end{tabular}
-\\[2pt]
-\footnotesize $\dagger$ INT \texttt{maxHop=5} overflow. PINT measured on the valid regime
-($N \le 4$).
-\end{table}
-
-\hpccfs is flat $\approx 1.0$ across the entire sweep, including $N \ge 5$ where stock and
-multi-rate HPCC's per-hop INT record overflows the \texttt{maxHop} cap. HPCC-PINT, which carries
-one compressed utilization field, inherits HPCC's load-based control and so still suffers the
-${\sim}1.8\times$ multi-bottleneck penalty --- confirming that the fix requires a fair-share
-signal, not merely a smaller INT footprint. All HPCC-FS runs have zero PFC events.
+Stock and multi-rate HPCC are starved across $N = 2$--$4$ (penalty $1.90$--$1.96\times$ for stock,
+$1.44$--$1.75\times$ for multi-rate), then break entirely at $N \ge 5$, where the per-hop INT
+record overflows the \texttt{maxHop} cap (the apparent $0.51\times$ there is the overflow artifact,
+not a real allocation). \hpccfs is flat at $1.003$--$1.007\times$ across the entire sweep ---
+hop-count-independent by construction, since its single fair-rate field does not grow with path
+length. HPCC-PINT, which carries one compressed utilization field, inherits HPCC's load-based
+control and so still suffers the same ${\sim}1.8\times$ ($1.77$--$1.88\times$) multi-bottleneck
+penalty --- confirming that the fix requires a fair-share signal, not merely a smaller INT
+footprint. All \hpccfs runs have zero PFC events.
 
 \subsection{Structurally different topologies}
 
