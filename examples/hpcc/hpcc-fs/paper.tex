@@ -10,6 +10,7 @@
 
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{microtype}
@@ -488,25 +489,26 @@ footprint. All \hpccfs runs have zero PFC events.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.86\textwidth]{fig_topo_tree.png}
-\caption{Tree-fabric topology (3-tier, 15 nodes, unique shortest paths --- no ECMP). The
-highlighted line is the long flow $7 \to 13$, which crosses four switches.}
-\Description[3-tier tree fabric topology diagram]{3-tier tree fabric with 15 nodes: 1 core at
-top, 2 aggregation switches, 4 edge switches, and 8 hosts at the bottom, with unique shortest
-paths so no ECMP. A long flow from host 7 to host 13 is highlighted, crossing four switches.}
-\label{fig:topo-tree}
-\end{figure*}
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.96\textwidth]{fig_topo_fattree.png}
-\caption{Canonical $k = 4$ ECMP fat-tree (4 cores, 8 aggs, 8 edges, 16 hosts in 4 pods). The
-highlighted line is a representative inter-pod 5-switch path.}
-\Description[k=4 ECMP fat-tree topology diagram]{Canonical k=4 fat-tree with 4 cores at top, 8
-aggregation switches, 8 edge switches, and 16 hosts arranged in 4 pods of 4 hosts each. All
-cores connect to all pods via the standard fat-tree pattern. A representative inter-pod
-5-switch path is highlighted.}
-\label{fig:topo-ft}
+\begin{subfigure}[b]{0.46\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{fig_topo_tree.png}
+  \caption{Tree fabric --- unique shortest paths, no ECMP.}
+  \label{fig:topo-tree}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.50\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{fig_topo_fattree.png}
+  \caption{$k = 4$ ECMP fat-tree (4 pods).}
+  \label{fig:topo-ft}
+\end{subfigure}
+\caption{Two structurally different topologies used to test generalization beyond the parking lot.
+\textbf{(a)} 3-tier tree fabric, 15 nodes; the highlighted line is the long flow $7 \to 13$,
+crossing four switches. \textbf{(b)} Canonical $k=4$ fat-tree (4 cores, 8 aggs, 8 edges, 16 hosts
+in 4 pods); the highlighted line is a representative inter-pod 5-switch path.}
+\label{fig:topos}
+\Description{Two topology diagrams side by side: a 3-tier tree fabric with 15 nodes and unique
+shortest paths (no ECMP), and a canonical k=4 fat-tree with 4 cores, 8 aggregation switches, 8
+edge switches, and 16 hosts in 4 pods.}
 \end{figure*}
 
 \paragraph{Tree fabric (3-tier, no ECMP).} A 3-tier tree with unique shortest paths (15 nodes;
