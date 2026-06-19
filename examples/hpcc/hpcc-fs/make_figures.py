@@ -117,7 +117,7 @@ def fig_nsweep():
     ax.set_title("Multi-bottleneck unfairness vs bottleneck count")
     ax.set_ylim(0, 2.3)
     ax.grid(axis="y", linestyle=":", alpha=0.5)
-    ax.legend(loc="upper left", fontsize=8, framealpha=0.95)
+    ax.legend(loc="upper right", fontsize=8, framealpha=0.95)
     fig.tight_layout()
     out = os.path.join(FIG_DIR, "fig_nsweep.png")
     fig.savefig(out, dpi=160)
@@ -220,7 +220,7 @@ def _plot_trace(ax, flows, t_axis, long_key, title):
     ax.set_ylim(0, 26)
     ax.set_xlim(0, 40)
     ax.grid(linestyle=":", alpha=0.5)
-    ax.legend(loc="center right", fontsize=8, framealpha=0.95)
+    ax.legend(loc="lower right", fontsize=8, framealpha=0.95)
 
 
 def fig_rate_trace():
