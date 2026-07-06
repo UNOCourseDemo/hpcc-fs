@@ -21,6 +21,7 @@ load-bearing), and an HPCC-PINT baseline (1.77–1.88× — a smaller INT footpr
 > **📦 Artifact-review repository.** A self-contained, buildable snapshot of the HPCC-FS ns-3
 > simulator.
 > - **Paper:** [`examples/hpcc/hpcc-fs/paper.pdf`](examples/hpcc/hpcc-fs/paper.pdf)
+> - **Slides:** [`examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pdf`](examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pdf)
 > - **Project page:** <https://unocoursedemo.github.io/hpcc-fs/>
 > - **Baseline reproduction** of the original HPCC (5 schemes × 2 workloads × 3 loads on a
 >   376-node fat-tree): [`examples/hpcc/repro-verification/`](examples/hpcc/repro-verification/)
@@ -62,6 +63,8 @@ committed config snapshot.
 |---|---|
 | `paper.pdf` | Compiled 9-page paper (ACM `acmart` sigconf), ready to view |
 | `paper.tex` + `paper.bib` | LaTeX sources |
+| `paper-ipccc.pdf` + `paper-ipccc.tex` | IEEE-format submission version (IPCCC), same content |
+| `talk/ipccc2026-talk.pptx` / `.pdf` | Conference talk slides (18 slides, speaker notes on every slide) |
 | `figures/*.png` | All paper figures (regenerated live by `make_figures.py`) |
 
 **Build the PDF.** From `examples/hpcc/hpcc-fs/`:
