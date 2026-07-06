@@ -153,7 +153,7 @@ def fig_robustness():
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=9)
     ax.set_xlabel("relative penalty (long-path slowdown / short-path slowdown)")
-    ax.set_title("HPCC-FS robustness across asymmetric workloads (parking-lot, N=4)")
+    ax.set_title("Robustness across asymmetric workloads (N=4)")
     ax.set_xlim(0, 4.0)
     ax.invert_yaxis()
     ax.grid(axis="x", linestyle=":", alpha=0.5)
