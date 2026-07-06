@@ -426,6 +426,7 @@ back unchanged --- no receiver changes.
 $[R_{\min}, \mathit{NICrate}]$. That single assignment is the whole sender control loop.
 
 \subsection{Startup smoothing}
+\label{sec:startup}
 
 Two cold-start details matter for clean operation. \textbf{Switch:} initialize $R = C/2$ (the
 common-case two-flow fair share), not $C$ --- otherwise the first stamped rate is line rate.
@@ -458,7 +459,12 @@ flow's effective window well below what is needed at its fair rate.
 All experiments use the deterministic parking-lot benchmark of \S\ref{sec:bg}, driven by our
 \texttt{hpcc-validation.cc}. Flows are 50 MB unless noted; sim time is 200 ms; the optimized
 binary is used throughout. We compare against stock HPCC (\texttt{cc\_mode 3},
-\texttt{multi\_rate = false}), stock HPCC multi-rate, and the \texttt{mb\_mode} ablation suite.
+\texttt{multi\_rate = false}), stock HPCC multi-rate, HPCC-PINT, and the \texttt{mb\_mode}
+ablation suite. The simulator is a refactored re-port of the original HPCC ns-3 stack onto a
+tagged ns-3.45 release; before using it here we verified that the re-port still reproduces the
+original paper's baseline comparisons (HPCC vs.\ DCQCN, TIMELY, DCTCP, and PINT across WebSearch
+and FB-Hadoop workloads at 30--70\% load on a 320-server fat-tree). The full reproduction record
+--- per-run configurations, results, and analysis --- ships with the artifact.
 
 \subsection{Headline: N-sweep}
 
@@ -592,7 +598,7 @@ topologies, joint sweeps, or heterogeneous link speeds, which remain future work
 \subsection{Queueing and PFC}
 \label{sec:queue}
 
-With the smoothed startup (\S\ref{sec:design}.2), \hpccfs produces \textbf{zero PFC events} on
+With the smoothed startup (\S\ref{sec:startup}), \hpccfs produces \textbf{zero PFC events} on
 every workload in the $N$-sweep and the robustness matrix. ECN marking remains; queue length is
 bounded (peak ${\approx}120$ KB at $N=4$); no flow loss.
 
@@ -640,8 +646,8 @@ beats HPCC's mean FCT (242 vs 259 $\mu$s) at roughly one-quarter the queue, with
 startup is a clean knob (queue rises again only past the point where the aggregate startup rate
 exceeds link capacity), and crucially it does \emph{not} disturb the multi-bottleneck headline:
 at 8 Gbps the parking-lot penalty stays $1.003$--$1.004\times$ ($N\!=\!2,3,4$) with robustness
-variants $1.002$--$1.009\times$, all PFC $= 0$ (\S\ref{sec:cost} reuses the same operating point
-as the headline). So on the home-turf workloads we measured, \hpccfs's fairness fix comes at
+variants $1.002$--$1.009\times$, all PFC $= 0$ (the same operating point as the headline runs).
+So on the home-turf workloads we measured, \hpccfs's fairness fix comes at
 \emph{little-to-no FCT cost and a queue benefit} --- not a trade-off.
 
 We are careful not to overclaim: \hpccfs still lacks HPCC's per-hop, window-bounded reaction, so

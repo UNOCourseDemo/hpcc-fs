@@ -60,7 +60,7 @@ committed config snapshot.
 
 | File | What it is |
 |---|---|
-| `paper.pdf` | Compiled 8-page paper (ACM `acmart` sigconf), ready to view |
+| `paper.pdf` | Compiled 9-page paper (ACM `acmart` sigconf), ready to view |
 | `paper.tex` + `paper.bib` | LaTeX sources |
 | `figures/*.png` | All paper figures (regenerated live by `make_figures.py`) |
 
@@ -168,7 +168,7 @@ cc_mode 3 = 1.959× at *N* = 4).
 | If you want to… | Start here |
 |---|---|
 | Read the paper | `paper.pdf` |
-| Trace the research chronologically | `findings.md` (F1 → F17) |
+| Trace the research chronologically | `findings.md` (F1 → F19) |
 | Understand the HPCC-FS mechanism | `paper.tex` §4 (incl. Algorithms 1–2) |
 | Reproduce a result | *Reproduce* section above |
 | Modify the engine | *Engine changes* table above |
