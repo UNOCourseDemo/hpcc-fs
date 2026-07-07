@@ -78,7 +78,9 @@ adds a single RCP-style fair-rate signal --- one 64-bit header field and one sca
 egress port --- whose fixed point is the max-min share, reached \emph{without ever counting flows}.
 On contention benchmarks it drives the multi-bottleneck penalty to ${\approx}1.0\times$ across
 bottleneck counts, asymmetric flow sizes, staggered starts, and ECMP hash seeds, with zero PFC;
-we delimit the claim explicitly where max-min is not the operator's objective (mixed short-flow
+on allreduce-style coflows --- where the job is gated by its slowest, multi-bottleneck flows ---
+it cuts job completion time by ${\sim}20\%$ at every ECMP seed. We delimit the claim explicitly
+where max-min is not the operator's objective (mixed short-flow
 workloads) and where fabric-scale contention does not form. The mechanism is RCP; our primary
 contribution is the \emph{diagnosis} and the demonstration that the fix belongs in the network,
 not the endpoint. The stock HPCC code path is left byte-for-byte unchanged.
@@ -141,7 +143,9 @@ path (\texttt{cc\_mode 3}) byte-for-byte unchanged.
 
 \item \textbf{An evaluation showing \hpccfs achieves the goal} (\S\ref{sec:eval}): max-min
 penalty ${\approx}1.005\times$ at $N=4$, zero PFC events, robust across asymmetric workloads,
-generalizing to a tree-fabric and to a $k = 4$ ECMP fat-tree.
+generalizing to a tree-fabric and to a $k = 4$ ECMP fat-tree --- and, on allreduce-style
+coflows where the slowest flow gates the job, a ${\sim}20\%$ JCT reduction at every ECMP hash
+seed (\S\ref{sec:jct}).
 \end{enumerate}
 
 Our framing positions the negative result (sender-only designs are insufficient in our
@@ -701,6 +705,25 @@ Stock HPCC: the long flow collapses to ${\sim}0.4$ Gbps while the four cross flo
 ${\sim}23$ Gbps each for the full 18 ms contention; \hpccfs: all five flows converge to
 ${\sim}12.5$ Gbps within ${\sim}4$ ms and stay locked at fair share.
 
+\subsection{When max-min is the objective: allreduce-style coflow JCT}
+\label{sec:jct}
+
+The workload class that motivates multi-bottleneck fairness is collective communication: a
+training step's shard exchange or allreduce completes only when its \emph{slowest} flow
+completes, so the job completion time is the coflow's maximum FCT --- and the slowest flows are
+precisely the cross-pod, multi-bottleneck ones that stock HPCC starves. We run a 16-flow ring
+allreduce chunk-exchange over all hosts of the $k{=}4$ fat-tree (4 inter-pod, 4
+intra-pod-different-edge, 8 same-edge segments; 50 MB each; JCT $=$ max FCT), across the same
+five ECMP hash seeds. \hpccfs cuts JCT by $19.5$--$22.7\%$ (mean $21.4\%$) at \emph{every}
+seed, and makes it nearly placement-invariant ($17.9$--$18.0$ ms across seeds, versus stock's
+$22.3$--$23.3$ ms) --- equalized flows cannot be victimized by an unlucky hash. Adding eight 2
+MB background flows leaves the JCT gain intact ($+20.6\%$ mean) and, in this mix, speeds the
+background flows up ${\sim}3\times$ ($0.9$--$1.3$ ms vs $2.2$--$4.3$ ms): under winner-take-all
+dynamics whether a short flow wins or loses is a placement lottery (they lose here, they won in
+the WebSearch mix of \S\ref{sec:scope}), and max-min removes the lottery. The earlier
+shard-exchange workload of \S\ref{sec:eval} shows the same job-level effect: JCT improves
+$9.8$--$26.5\%$ across seeds (\texttt{run\_allreduce\_jct.py}).
+
 \subsection{Scope of the headline claim}
 \label{sec:scope}
 
@@ -712,7 +735,8 @@ slowdown by ${\sim}15\%$ but raises short-path mean slowdown by ${\sim}45\%$
 (\S\ref{sec:discussion}) --- the headroom short flows previously enjoyed was subsidized by the
 long flow's starvation, and workloads whose objective is short-flow FCT (the Homa/pFabric
 regime~\cite{montazeri2018homa,alizadeh2013pfabric}) may prefer that subsidy; max-min is the
-right target only when multi-bottleneck flows matter. (ii)~\emph{Fabric scale}: at $k = 6, 8$
+right target when multi-bottleneck flows matter --- in particular when they gate a collective,
+where the subsidy inverts into a job-level tax (\S\ref{sec:jct}). (ii)~\emph{Fabric scale}: at $k = 6, 8$
 our scaling workload does not form persistent inter-pod contention (both schemes' penalty
 ${<}1$), so the fix is exercised, but untested, where large-fabric contention would arise; a
 saturating workload is future work. (iii)~\emph{ECMP placement}: under ECMP an operator still
