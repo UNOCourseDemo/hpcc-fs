@@ -67,15 +67,21 @@ workloads via INT-based precision congestion control with no per-flow switch sta
 design has a structural fairness failure on \emph{multi-bottleneck} paths --- increasingly common
 in cross-pod and disaggregated datacenter traffic: a flow crossing several shared bottlenecks is
 starved by ${\sim}2\times$ relative to single-bottleneck competitors, and fails entirely once the
-per-hop INT record overflows its hop budget. Through a five-variant sender-side ablation we show
-the gap is not closable from the endpoint --- a sender cannot compute its max-min fair share
-because the link's flow count is not observable in INT. The fix belongs at the switch. \hpccfs
+per-hop INT record overflows its hop budget --- a cap inherited from HPCC's original wire format.
+The collapse is winner-take-all, RTT-independent, and survives HPCC's own multi-rate mode and INT
+compression (PINT). Five representative sender-only corrections fail to close the gap, and we give
+the structural reason: at the target-utilization equilibrium every flow holds its rate, and the
+link's flow count is not observable in INT, leaving only additive redistribution that is orders of
+magnitude too slow (we claim empirical evidence, not formal impossibility). We argue the fix
+belongs at the switch: \hpccfs
 adds a single RCP-style fair-rate signal --- one 64-bit header field and one scalar of state per
 egress port --- whose fixed point is the max-min share, reached \emph{without ever counting flows}.
-It drives the multi-bottleneck penalty to ${\approx}1.0\times$ across bottleneck counts, asymmetric
-flow sizes, staggered starts, and ECMP fat-trees, with zero PFC. We are explicit that the mechanism
-is RCP; our primary contribution is the \emph{diagnosis} and the demonstration that the fix belongs
-in the network, not the endpoint. The stock HPCC code path is left byte-for-byte unchanged.
+On contention benchmarks it drives the multi-bottleneck penalty to ${\approx}1.0\times$ across
+bottleneck counts, asymmetric flow sizes, staggered starts, and ECMP hash seeds, with zero PFC;
+we delimit the claim explicitly where max-min is not the operator's objective (mixed short-flow
+workloads) and where fabric-scale contention does not form. The mechanism is RCP; our primary
+contribution is the \emph{diagnosis} and the demonstration that the fix belongs in the network,
+not the endpoint. The stock HPCC code path is left byte-for-byte unchanged.
 \end{abstract}
 
 \begin{document}
@@ -103,10 +109,15 @@ We address that question with a deterministic, oracle-grounded methodology. Our 
 
 \begin{enumerate}
 \item \textbf{An empirical characterization} of HPCC's multi-bottleneck behaviour using a
-parameterized parking-lot benchmark and a fluid max-min oracle (\S\ref{sec:bg}). We show the
-multi-bottleneck penalty is real (${\sim}1.9\times$ at $N = 2$--$4$), worse for small flows
-($3.5\times$), robust to flow-size asymmetry and start staggering, and \emph{RTT-independent}:
-equalizing the long flow's RTT with the cross flows' does not move the penalty.
+parameterized parking-lot benchmark and a fluid max-min oracle (\S\ref{sec:bg}). That a
+load-based scheme inherits some multi-bottleneck unfairness is folk knowledge; what the
+characterization adds is mechanism and magnitude that the folk claim does not predict: the
+failure is \emph{winner-take-all} (the long flow collapses to ${\sim}0.4$ Gbps against
+${\sim}23$ Gbps competitors, a ${\sim}1.9\times$ FCT penalty at $N = 2$--$4$, $3.5\times$ for
+small flows), \emph{RTT-independent} (equalizing RTTs does not move it), robust to flow-size
+asymmetry and start staggering, immune to HPCC's own per-hop multi-rate mode and to INT
+compression (PINT), and compounded by a \emph{wire-format} failure --- beyond four bottlenecks
+the per-hop INT record overflows its 5-hop budget and the control input is corrupted outright.
 
 \item \textbf{A negative result for sender-only fixes} (\S\ref{sec:senderonly}). We implement
 five sender-side variants of HPCC ranging from a $k$-aware additive boost to a global
@@ -222,7 +233,13 @@ $1.0$ for equal-size, simultaneous flows.
 $1.96$: the multi-bottleneck flow's FCT is roughly twice that of single-bottleneck competitors.
 \textbf{There is a non-monotonic regime change at $N \ge 5$}, where the long flow becomes
 favored ($0.51\times$); this turns out to be an INT-overflow artifact at $\texttt{maxHop} = 5$
-and we exclude $N \ge 5$ from the rest of this paper's stock comparisons (Figure~\ref{fig:nsweep}).
+and we exclude $N \ge 5$ from the rest of this paper's stock comparisons
+(Figure~\ref{fig:nsweep}).\footnote{The 5-hop cap is HPCC's original wire format, not an
+artifact of our re-port: the reference simulator hard-codes $\texttt{maxHop}=5$ in its INT
+header~\cite{hpccrepo}, consistent with the paper's 42-byte worst-case INT overhead (five
+8-byte hop records). Conversely, a parking-lot path at $N \le 4$ traverses at most five
+switches --- \emph{within} the INT budget --- so the retained $N = 2$--$4$ measurements are
+structurally free of the overflow.}
 
 \paragraph{Robustness.} Perturbations across flow size and start time give penalties of
 $1.81\times$--$3.53\times$ (Figure~\ref{fig:robustness}): stable at $1.8$--$2.0\times$ and
@@ -533,7 +550,14 @@ long/short FCT ratio, which under HPCC-FS is still ${\sim}1.32\times$ --- but th
 inflating the raw ratio independently of the congestion controller. PFC $= 0$ for both schemes.
 The point is that, once ECMP load placement is normalized away, HPCC-FS removes the
 multi-bottleneck penalty; the path-min fair-rate aggregation is path-invariant, so ECMP requires
-no design changes.
+no design changes. \emph{Hash-seed sensitivity.} Because a single deterministic run fixes one
+placement, we re-ran the workload across five ECMP hash seeds (an additive
+\texttt{ecmp\_seed\_offset} knob shifts every switch's hash seed; the default preserves stock
+behavior). The stock raw ratio varies $0.97$--$1.34\times$ across seeds \emph{with no change to
+the congestion controller} --- direct evidence that the raw spread is placement-dominated ---
+while \hpccfs's raw ratio is at or below stock's at every seed, and in the seed where placement
+produces real contention the ratio drops $1.338\times \to 1.001\times$. The oracle-normalized
+conclusion is therefore seed-robust (\texttt{run\_ecmp\_seeds.py} in the artifact).
 
 \subsection{Robustness across asymmetric workloads}
 
@@ -677,6 +701,25 @@ Stock HPCC: the long flow collapses to ${\sim}0.4$ Gbps while the four cross flo
 ${\sim}23$ Gbps each for the full 18 ms contention; \hpccfs: all five flows converge to
 ${\sim}12.5$ Gbps within ${\sim}4$ ms and stay locked at fair share.
 
+\subsection{Scope of the headline claim}
+\label{sec:scope}
+
+The ${\approx}1.0\times$ headline is a statement about the \emph{congestion-control component}
+of multi-bottleneck unfairness on contention benchmarks --- not a claim of universal FCT
+improvement on production workloads. Three first-class limits: (i)~\emph{mixed short-flow
+workloads}: under a WebSearch size distribution, restoring max-min lowers multi-bottleneck flow
+slowdown by ${\sim}15\%$ but raises short-path mean slowdown by ${\sim}45\%$
+(\S\ref{sec:discussion}) --- the headroom short flows previously enjoyed was subsidized by the
+long flow's starvation, and workloads whose objective is short-flow FCT (the Homa/pFabric
+regime~\cite{montazeri2018homa,alizadeh2013pfabric}) may prefer that subsidy; max-min is the
+right target only when multi-bottleneck flows matter. (ii)~\emph{Fabric scale}: at $k = 6, 8$
+our scaling workload does not form persistent inter-pod contention (both schemes' penalty
+${<}1$), so the fix is exercised, but untested, where large-fabric contention would arise; a
+saturating workload is future work. (iii)~\emph{ECMP placement}: under ECMP an operator still
+observes a raw long/short spread (${\sim}1.3\times$ at the contended placement) that comes from
+hash load placement, not congestion control --- \hpccfs removes the CC component
+(\S\ref{sec:eval}), not the placement component, which is a routing/load-balancing problem.
+
 % ============================================================================
 \section{Related Work}
 \label{sec:related}
@@ -711,7 +754,14 @@ separate efficiency and fairness controllers; and RCP~\cite{dukkipati2008rcp} re
 fair-rate scalar per link with no per-flow state, packet-stamped, with senders taking the path minimum.
 RCP is the closest mechanism to ours: \hpccfs adopts its update rule but situates it as a \emph{minimal
 fairness signal injected into an existing INT load-signaling system} rather than a standalone protocol,
-keeping HPCC's single-rate sender and per-hop transport. ABC~\cite{goyal2020abc} argues, for wireless
+keeping HPCC's single-rate sender and per-hop transport. A head-to-head against standalone RCP on the
+parking lot would compare \emph{identical} control laws: on contended flows \hpccfs's data-plane
+dynamics \emph{are} RCP's by construction (the same per-port update, the same path-min aggregation,
+the same sender adoption), so the fairness numbers of \S\ref{sec:eval} are, by that identity, also
+plain RCP's numbers on this benchmark. What \hpccfs adds over deploying RCP as a separate protocol is
+packaging, not control: one field on the INT transport a datacenter already runs, a byte-identical
+stock HPCC path, and per-\texttt{cc\_mode} coexistence --- no second protocol stack, no new header on
+the wire. ABC~\cite{goyal2020abc} argues, for wireless
 links, that switches should compute the right control signal rather than expose raw load; we apply the
 same philosophy with minimal departure from HPCC's datacenter design.
 
@@ -806,9 +856,15 @@ switches. The min-aggregation per packet is a 64-bit compare and conditional wri
 
 \paragraph{Limitations.} Three topology families (parking-lot, tree-fabric, $k = 4{-}8$
 fat-tree) and one in-sim baseline (HPCC-PINT); no head-to-head with hardware-assisted designs
-such as Bolt or PowerTCP, which would require re-implementing them in this simulator; no testbed
-measurements; convergence is a few ms (not one RTT, \S\ref{sec:design}); and the ECMP evaluation
-is a small controlled workload, not a realistic mixed-size + ECMP combination. We did, however,
+such as Bolt or PowerTCP, which would require re-implementing them in this simulator (a
+standalone-RCP head-to-head would compare identical control laws, \S\ref{sec:related}); no
+testbed measurements; convergence is a few ms (not one RTT, \S\ref{sec:design}); and the ECMP
+evaluation is a small controlled workload, though now swept across hash seeds
+(\S\ref{sec:eval}), not a realistic mixed-size + ECMP combination. The multi-bottleneck numbers
+come from a single (re-ported) simulator: the re-port reproduces the original paper's baseline
+comparisons end-to-end (\S\ref{sec:eval}), and the retained $N \le 4$ regime sits within the
+original 5-hop INT budget by construction, but an independent-implementation cross-check of the
+parking-lot numbers remains future work. We did, however,
 verify that the result is insensitive to the RCP parameters (\S\ref{sec:sensitivity}), so the
 absence of tuning is not a hidden confound.
 

@@ -68,6 +68,7 @@ void HpccConfig::loadFromYaml(const std::string& filename) {
     if (config["fs_alpha"])         fs_alpha = config["fs_alpha"].as<double>();
     if (config["fs_beta"])          fs_beta = config["fs_beta"].as<double>();
     if (config["fs_init_frac"])     fs_init_frac = config["fs_init_frac"].as<double>();
+    if (config["ecmp_seed_offset"]) ecmp_seed_offset = config["ecmp_seed_offset"].as<uint32_t>();
     if (config["fs_disable_window"]) fs_disable_window = config["fs_disable_window"].as<bool>();
     if (config["pint_log_base"])    pint_log_base = config["pint_log_base"].as<double>();
     if (config["pint_prob"])        pint_prob = config["pint_prob"].as<double>();

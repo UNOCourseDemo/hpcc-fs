@@ -98,6 +98,7 @@ class HpccConfig {
     double get_fs_alpha() const { return fs_alpha; }
     double get_fs_beta() const { return fs_beta; }
     double get_fs_init_frac() const { return fs_init_frac; }
+    uint32_t get_ecmp_seed_offset() const { return ecmp_seed_offset; }
     bool get_fs_disable_window() const { return fs_disable_window; }
     double get_pint_log_base() const { return pint_log_base; }
     double get_pint_prob() const { return pint_prob; }
@@ -191,6 +192,7 @@ class HpccConfig {
     double fs_alpha = 0.4;
     double fs_beta = 0.226;
     double fs_init_frac = 0.5;        // initial fair rate = fs_init_frac * C
+    uint32_t ecmp_seed_offset = 0;    // added to each switch id as its ECMP hash seed (0 = stock behavior)
     bool fs_disable_window = true;    // FS mode is rate-only (no per-flow window cap)
     double pint_log_base = 1.05;
     double pint_prob = 1.0;

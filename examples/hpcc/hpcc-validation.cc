@@ -995,6 +995,10 @@ int main(int argc, char* argv[])
 			sw->m_mmu->ConfigNPort(sw->GetNDevices() - 1);
 			sw->m_mmu->ConfigBufferSize(cfg.get_buffer_size() * 1024 * 1024);
 			sw->m_mmu->node_id = sw->GetId();
+			// ECMP hash-seed sensitivity knob (additive): default 0 leaves the
+			// stock per-switch seed (= node id) untouched.
+			if (cfg.get_ecmp_seed_offset() != 0)
+				sw->SetEcmpSeed(sw->GetId() + cfg.get_ecmp_seed_offset());
 		}
 	}
 
