@@ -744,13 +744,16 @@ and P4~\cite{bosshart2014p4} make the per-port computation \hpccfs needs---an EW
 multiply--add rate update, and stamping one header field---implementable on the same class of
 programmable switches that HPCC's INT and Bolt~\cite{arslan2023bolt} already assume.
 
-\paragraph{Closely related switch-assisted DC schemes.} Bolt~\cite{arslan2023bolt} targets HPCC's
-latency limits with Sub-RTT Control, Proactive Ramp-Up, and Supply Matching on programmable switches,
-reporting ${\sim}3\times$ FCT improvement and ${\sim}80\%$ tail-latency reduction over HPCC at
-400~Gbps; it focuses on tail latency and ramp-up rather than multi-bottleneck max-min fairness and
-keeps richer per-flow switch state than our single scalar per port. A direct head-to-head on the
-multi-bottleneck workload of \S\ref{sec:bg} would clarify how Bolt's per-flow window adjustments
-interact with the dynamics we characterize. Annulus~\cite{saeed2020annulus} uses a dual-control-loop
+\paragraph{Closely related switch-assisted DC schemes.} Bolt~\cite{arslan2023bolt} accelerates
+HPCC's control loop with sub-RTT, per-flow switch assistance (Sub-RTT Control, Proactive Ramp-Up,
+Supply Matching), targeting tail latency and ramp-up. Its objective is orthogonal to ours: Bolt is
+not designed for, and does not claim, multi-bottleneck max-min fairness, and its feedback carries
+load/supply information rather than an explicit fair share --- so the information asymmetry of
+\S\ref{sec:senderonly} applies to its senders as well: a faster load-signal loop converges faster,
+but to the same equilibrium, since the fair share $C/N$ is still not in the signal. A head-to-head
+(which would require re-implementing Bolt's switch pipeline in our stack) would therefore measure
+reaction speed rather than the fairness mechanism this paper isolates; we leave it to future work.
+Annulus~\cite{saeed2020annulus} uses a dual-control-loop
 design for traffic aggregates mixing WAN and datacenter flows---largely orthogonal to intra-DC
 multi-bottleneck fairness within a single class.
 
@@ -819,8 +822,9 @@ switches. The min-aggregation per packet is a 64-bit compare and conditional wri
 
 \paragraph{Limitations.} Three topology families (parking-lot, tree-fabric, $k = 4{-}8$
 fat-tree) and one in-sim baseline (HPCC-PINT); no head-to-head with hardware-assisted designs
-such as Bolt or PowerTCP, which would require re-implementing them in this simulator (a
-standalone-RCP head-to-head would compare identical control laws, \S\ref{sec:related}); no
+such as Bolt or PowerTCP --- re-implementing them in this simulator is substantial, their
+objectives are orthogonal to multi-bottleneck max-min fairness, and a standalone-RCP
+head-to-head would compare identical control laws (\S\ref{sec:related}); no
 testbed measurements; convergence is a few ms (not one RTT, \S\ref{sec:design}); and the ECMP
 evaluation is a small controlled workload, though now swept across hash seeds
 (\S\ref{sec:eval}), not a realistic mixed-size + ECMP combination. The multi-bottleneck numbers
