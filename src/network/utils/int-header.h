@@ -81,6 +81,11 @@ public:
 		TS = 1,
 		PINT = 2,
 		FS = 3,   // HPCC-FS: single RCP-style fair-rate field (min-aggregated along path)
+		// FSMIX: mixed-mode coexistence. Wire layout is IDENTICAL to NORMAL (42 B), so stock
+		// HPCC packets are byte-for-byte unchanged; FS-class packets reuse the union's first
+		// 8 bytes (== hop[0].buf == fairRate) to carry the min-aggregated fair rate, and never
+		// push hop records. Per-packet class dispatch happens at the switch/sender, not on the wire.
+		FSMIX = 4,
 		NONE
 	};
 	static Mode mode;

@@ -1,6 +1,6 @@
 // IPCCC 2026 talk deck for HPCC-FS — generated with pptxgenjs.
 // Palette (semantic): navy 1E2761 dominant; ice CADCFC tint; RED C0504D = stock HPCC / problem;
-// BLUE 4F81BD = HPCC-FS / fix (matches the paper figures' series colors).
+// BLUE 4F81BD = HPCC-FS / mode (matches the paper figures' series colors).
 const pptxgen = require("pptxgenjs");
 
 const NAVY = "1E2761", ICE = "CADCFC", RED = "C0504D", BLUE = "4F81BD";
@@ -219,7 +219,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 8 · structural reason (dark emphasis)
 {
   const s = p.addSlide(); s.background = { color: NAVY };
-  titleBar(s, "Why", "Two structural reasons sender-only cannot work", true);
+  titleBar(s, "Why", "Two structural reasons every sender-only fix stalls", true);
   const card = (x, head, lines, tint) => {
     s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 1.55, w: 4.25, h: 2.55, fill: { color: PAPER }, rectRadius: 0.1, shadow: sh() });
     s.addText(head, { x: x + 0.28, y: 1.78, w: 3.7, h: 0.4, fontSize: 16, bold: true, color: tint, fontFace: "Calibri", margin: 0 });
@@ -376,7 +376,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   ];
   s.addTable(rows2, { x: 6.45, y: 1.6, w: 3.1, colW: [1.5, 0.7, 0.9], fontFace: "Calibri", fontSize: 11.5,
     color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.44, valign: "middle", margin: 0.04 });
-  s.addText("† oracle-normalized (removes ECMP placement luck). Across 5 hash seeds the raw ratio is placement-dominated; HPCC-FS ≤ stock at every seed.", {
+  s.addText("† oracle-normalized (removes ECMP placement luck). Across 5 hash seeds the raw ratio is placement-dominated; HPCC-FS ≤ stock at 4 of 5 seeds (the 5th is uncontended).", {
     x: 6.45, y: 3.75, w: 3.1, h: 1.1, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", margin: 0 });
   s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — HPCC-FS stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.");
 }
@@ -442,7 +442,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   ], { x: 6.84, y: 1.65, w: 2.4, h: 2.6, fontFace: "Calibri", margin: 0, valign: "top" });
   s.addText("Everything regenerates deterministically from the artifact — figures and tables are built from live runs.", {
     x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontSize: 12, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes HPCC-FS match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness fix is not a trade-off.");
+  s.addNotes("Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes HPCC-FS match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness mode is not a trade-off.");
 }
 
 // ============================================================ 15 · honesty
@@ -452,7 +452,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   const L = [
     ["The mechanism is RCP; HPCC-FS is a mode, not a repair.", "We claim the diagnosis and the placement. HPCC-FS coexists with stock HPCC per traffic class; mixed classes sharing links are future work."],
     ["Simulation-only, three topology families.", "No testbed; no head-to-head with Bolt / PowerTCP (would require re-implementing them). The simulator re-port reproduces the original HPCC baselines end-to-end."],
-    ["Convergence is ~4 ms, not one RTT.", "Fast and path-length-independent — the per-port estimate needs ~10² RTTs to settle."],
+    ["Convergence is sub-ms, not one RTT.", "Within 5% of fair share in ~0.6 ms (~30 RTTs); path-length-independent."],
   ];
   L.forEach((r, i) => {
     const y = 1.5 + i * 0.98;
@@ -492,7 +492,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "github.com/UNOCourseDemo/hpcc-fs", options: { fontSize: 12.5, bold: true, color: ICE, fontFace: "Courier New" } },
   ], { x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontFace: "Calibri", align: "center" });
   s.addText("Thank you — questions?", { x: 0.6, y: 5.12, w: 8.85, h: 0.4, fontSize: 15, bold: true, color: PAPER, fontFace: "Cambria", align: "center" });
-  s.addNotes("To close: a real, robust fairness failure in the state of the art; evidence that the endpoint can't fix it because the endpoint can't see the flow count; and a deliberately minimal switch fix — one field, one scalar — that lands within half a percent of the max-min oracle with zero PFC, leaving stock HPCC byte-for-byte intact. Everything is in the artifact, including a full reproduction of the original HPCC baselines. Happy to take questions.");
+  s.addNotes("To close: a real, robust fairness failure in the state of the art; evidence that the endpoint can't fix it because the endpoint can't see the flow count; and a deliberately minimal switch mode — one field, one scalar — that lands within about one percent of the max-min oracle with zero PFC, leaving stock HPCC byte-for-byte intact. One caveat we measured and report: on an unreserved shared queue the two modes do not each get a fair share, so HPCC-FS needs a reserved bandwidth share. Everything is in the artifact, including a full reproduction of the original HPCC baselines. Happy to take questions.");
 }
 
 // ============================================================ 17 · BACKUP: reproduction

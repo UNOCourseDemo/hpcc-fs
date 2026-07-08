@@ -14,7 +14,7 @@ IntHeader::IntHeader() : nhop(0) {
 }
 
 uint32_t IntHeader::GetStaticSize(){
-	if (mode == NORMAL){
+	if (mode == NORMAL || mode == FSMIX){   // FSMIX shares NORMAL's 42-byte wire layout
 		return sizeof(hop) + sizeof(nhop);
 	}else if (mode == TS){
 		return sizeof(ts);
@@ -28,8 +28,8 @@ uint32_t IntHeader::GetStaticSize(){
 }
 
 void IntHeader::PushHop(uint64_t time, uint64_t bytes, uint32_t qlen, uint64_t rate){
-	// only do this in INT mode
-	if (mode == NORMAL){
+	// only do this in INT mode (FSMIX carries the same per-hop record for its stock-HPCC class)
+	if (mode == NORMAL || mode == FSMIX){
 		uint32_t idx = nhop % maxHop;
 		hop[idx].Set(time, bytes, qlen, rate);
 		nhop++;
@@ -38,7 +38,7 @@ void IntHeader::PushHop(uint64_t time, uint64_t bytes, uint32_t qlen, uint64_t r
 
 void IntHeader::Serialize (Buffer::Iterator start) const{
 	Buffer::Iterator i = start;
-	if (mode == NORMAL){
+	if (mode == NORMAL || mode == FSMIX){
 		for (uint32_t j = 0; j < maxHop; j++){
 			i.WriteU32(hop[j].buf[0]);
 			i.WriteU32(hop[j].buf[1]);
@@ -58,7 +58,7 @@ void IntHeader::Serialize (Buffer::Iterator start) const{
 
 uint32_t IntHeader::Deserialize (Buffer::Iterator start){
 	Buffer::Iterator i = start;
-	if (mode == NORMAL){
+	if (mode == NORMAL || mode == FSMIX){
 		for (uint32_t j = 0; j < maxHop; j++){
 			hop[j].buf[0] = i.ReadU32();
 			hop[j].buf[1] = i.ReadU32();
@@ -98,12 +98,14 @@ void IntHeader::SetPower(uint16_t power){
 }
 
 uint64_t IntHeader::GetFairRate(void){
-	if (mode == FS)
+	// In FSMIX the fair rate occupies the union's first 8 bytes (== hop[0].buf); the FS-class
+	// packets that use it never push hop records, so the alias is unambiguous.
+	if (mode == FS || mode == FSMIX)
 		return fairRate;
 	return 0;
 }
 void IntHeader::SetFairRate(uint64_t r){
-	if (mode == FS)
+	if (mode == FS || mode == FSMIX)
 		fairRate = r;
 }
 

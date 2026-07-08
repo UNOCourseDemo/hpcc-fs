@@ -33,6 +33,7 @@ class SwitchNode : public Node{
 	double m_fsAlpha;            // RCP gain alpha (default 0.4)
 	double m_fsBeta;             // RCP gain beta (default 0.226)
 	double m_fsInitFrac;         // initial fair rate as fraction of C (default 0.5 = C/2)
+	uint16_t m_mixFsDport;       // cc_mode 12: UDP dport >= this marks the HPCC-FS traffic class
 
 protected:
 	bool m_ecnEnabled;

@@ -58,6 +58,11 @@ TypeId SwitchNode::GetTypeId (void)
 			DoubleValue(0.5),
 			MakeDoubleAccessor(&SwitchNode::m_fsInitFrac),
 			MakeDoubleChecker<double>())
+	.AddAttribute("MixFsDport",
+			"cc_mode 12: UDP dport >= this value marks the HPCC-FS traffic class (0 = disabled)",
+			UintegerValue(0),
+			MakeUintegerAccessor(&SwitchNode::m_mixFsDport),
+			MakeUintegerChecker<uint16_t>())
   ;
   return tid;
 }
@@ -84,6 +89,7 @@ SwitchNode::SwitchNode(){
 	m_fsAlpha = 0.4;
 	m_fsBeta = 0.226;
 	m_fsInitFrac = 0.5;
+	m_mixFsDport = 0;
 }
 
 int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
@@ -323,7 +329,24 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 					ih->SetPower(power);
 
 				m_u[ifIndex] = newU;
-			}else if (m_ccMode == 11){ // HPCC-FS: RCP-style per-port fair rate, min along path
+			}else if (m_ccMode == 11 || m_ccMode == 12){ // HPCC-FS (11) / mixed coexistence (12)
+				// cc_mode 12: stock HPCC and HPCC-FS classes share this port. Classify the
+				// packet by its UDP destination port (the class tag; see m_mixFsDport) and
+				// stamp the format that class expects. Both classes sit in the same priority
+				// queue, so they genuinely contend for this link.
+				if (m_ccMode == 12){
+					uint16_t dport = ((uint16_t)buf[PppHeader::GetStaticSize() + 20 + 2] << 8)
+					               |  (uint16_t)buf[PppHeader::GetStaticSize() + 20 + 3];
+					if (dport < m_mixFsDport){   // stock HPCC class -> normal per-hop INT record
+						ih->PushHop(Simulator::Now().GetTimeStep(), m_txBytes[ifIndex],
+						            dev->GetQueue()->GetNBytesTotal(), dev->GetDataRate().GetBitRate());
+						m_txBytes[ifIndex] += p->GetSize();
+						m_lastPktSize[ifIndex] = p->GetSize();
+						m_lastPktTs[ifIndex] = Simulator::Now().GetTimeStep();
+						return;
+					}
+					// else: FS class -> fall through to the RCP fair-rate stamp below
+				}
 				uint64_t Cbps = dev->GetDataRate().GetBitRate();
 				if (m_fairR[ifIndex] <= 0){
 					// Start R at C/2 (fair share for the common 2-flow contention) instead of C.

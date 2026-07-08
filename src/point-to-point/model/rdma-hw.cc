@@ -30,6 +30,11 @@ TypeId RdmaHw::GetTypeId (void)
 				UintegerValue(1000),
 				MakeUintegerAccessor(&RdmaHw::m_mtu),
 				MakeUintegerChecker<uint32_t>())
+		.AddAttribute ("MixFsDport",
+				"cc_mode 12: QPs with dport >= this value belong to the HPCC-FS class (0 = disabled)",
+				UintegerValue(0),
+				MakeUintegerAccessor(&RdmaHw::m_mixFsDport),
+				MakeUintegerChecker<uint16_t>())
 		.AddAttribute ("CcMode",
 				"which mode of DCQCN is running",
 				UintegerValue(0),
@@ -290,6 +295,19 @@ void RdmaHw::AddQueuePair(
 		// stamped fair rate lifts the rate to ~C/N within 1 RTT.
 		qp->m_rate = m_minRate;
 		qp->hp.m_curRate = m_minRate;
+	}else if (m_cc_mode == 12){
+		// Mixed coexistence: this QP's class is identified by its dport. FS-class QPs get the
+		// HPCC-FS conservative start; stock-class QPs behave exactly as cc_mode 3.
+		if (IsFsQp(qp)){
+			qp->m_rate = m_minRate;
+			qp->hp.m_curRate = m_minRate;
+		}else{
+			qp->hp.m_curRate = m_bps;
+			if (m_multipleRate){
+				for (uint32_t i = 0; i < IntHeader::maxHop; i++)
+					qp->hp.hopState[i].Rc = m_bps;
+			}
+		}
 	}
 
 	// Notify Nic
@@ -442,6 +460,12 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch){
 			qp->tmly.m_curRate = dev->GetDataRate();
 		}else if (m_cc_mode == 10){
 			qp->hpccPint.m_curRate = dev->GetDataRate();
+		}else if (m_cc_mode == 12 && !IsFsQp(qp)){
+			qp->hp.m_curRate = dev->GetDataRate();
+			if (m_multipleRate){
+				for (uint32_t i = 0; i < IntHeader::maxHop; i++)
+					qp->hp.hopState[i].Rc = dev->GetDataRate();
+			}
 		}
 	}
 	return 0;
@@ -502,6 +526,12 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 		HandleAckHpPint(qp, p, ch);
 	}else if (m_cc_mode == 11){
 		HandleAckFs(qp, p, ch);
+	}else if (m_cc_mode == 12){
+		// Mixed coexistence: each QP runs the control law of its own class.
+		if (IsFsQp(qp))
+			HandleAckFs(qp, p, ch);
+		else
+			HandleAckHp(qp, p, ch);
 	}
 	// ACK may advance the on-the-fly window, allowing more packets to send
 	dev->TriggerTransmit();

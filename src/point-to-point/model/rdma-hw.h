@@ -122,7 +122,7 @@ public:
 	uint32_t m_miThresh;
 	bool m_multipleRate;
 	bool m_sampleFeedback; // only react to feedback every RTT, or qlen > 0
-	// HPCC-MB (multi-bottleneck fairness, sender-only ablation variants; see the paper, Section 3).
+	// HPCC-MB (multi-bottleneck fairness, sender-only; see examples/hpcc/follow-on/a/design.md).
 	// Orthogonal knob on top of HPCC (cc_mode 3). m_mbMode==0 -> behavior identical to stock HPCC.
 	uint32_t m_mbMode;  // 0=off, 1=k-aware AI
 	double m_mbGamma;   // correction strength: RateAI_eff = gamma * k * RateAI for k>=2
@@ -153,6 +153,11 @@ public:
 	void SetPintSmplThresh(double p);
 	void HandleAckHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch);
 	void HandleAckFs(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch); // HPCC-FS (cc_mode 11)
+	// cc_mode 12 (mixed coexistence): a QP belongs to the HPCC-FS class iff its dport is at or
+	// above m_mixFsDport. Both classes share links and priority queue; only the control law and
+	// the INT record they use differ.
+	uint16_t m_mixFsDport = 0;
+	bool IsFsQp(Ptr<RdmaQueuePair> qp) const { return m_mixFsDport != 0 && qp->dport >= m_mixFsDport; }
 	void UpdateRateHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react);
 };
 
