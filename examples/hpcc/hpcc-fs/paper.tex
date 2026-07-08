@@ -27,7 +27,7 @@
 
 \title[HPCC-FS: Multi-Bottleneck Fairness]{Multi-Bottleneck Fairness for High-Precision Congestion Control}
 
-\subtitle{A Minimal Switch Extension for Multi-Bottleneck Max-Min Fairness}
+\subtitle{A Coexisting Switch-Minimal Mode for Multi-Bottleneck Max-Min Fairness without PFC}
 
 \author{Haoyu Wang}
 \affiliation{%
@@ -72,18 +72,20 @@ The collapse is winner-take-all, RTT-independent, and survives HPCC's own multi-
 compression (PINT). Five representative sender-only corrections fail to close the gap, and we give
 the structural reason: at the target-utilization equilibrium every flow holds its rate, and the
 link's flow count is not observable in INT, leaving only additive redistribution that is orders of
-magnitude too slow (we claim empirical evidence, not formal impossibility). We argue the fix
-belongs at the switch: \hpccfs
-adds a single RCP-style fair-rate signal --- one 64-bit header field and one scalar of state per
-egress port --- whose fixed point is the max-min share, reached \emph{without ever counting flows}.
-On contention benchmarks it drives the multi-bottleneck penalty to ${\approx}1.0\times$ across
-bottleneck counts, asymmetric flow sizes, staggered starts, and ECMP hash seeds, with zero PFC;
-on allreduce-style coflows --- where the job is gated by its slowest, multi-bottleneck flows ---
-it cuts job completion time by ${\sim}20\%$ at every ECMP seed. We delimit the claim explicitly
-where max-min is not the operator's objective (mixed short-flow
-workloads) and where fabric-scale contention does not form. The mechanism is RCP; our primary
-contribution is the \emph{diagnosis} and the demonstration that the fix belongs in the network,
-not the endpoint. The stock HPCC code path is left byte-for-byte unchanged.
+magnitude too slow (we claim empirical evidence, not formal impossibility). We argue the
+fair-share signal must live at the switch, and offer \hpccfs not as a repair of HPCC but as an
+\emph{alternative operating mode on the same INT fabric} for traffic that requires
+multi-bottleneck max-min fairness with zero PFC: one 64-bit header field and one scalar of state
+per egress port carry an RCP-style fair rate whose fixed point is the max-min share, reached
+\emph{without ever counting flows}.
+On contention benchmarks the mode drives the multi-bottleneck penalty to ${\approx}1.0\times$
+across bottleneck counts, asymmetric flow sizes, staggered starts, and ECMP hash seeds, with zero
+PFC; on allreduce-style coflows --- where the job is gated by its slowest, multi-bottleneck flows
+--- it cuts job completion time by ${\sim}20\%$ at every ECMP seed. We state explicitly when the
+mode should \emph{not} be selected (mixed short-flow workloads) and where fabric-scale contention
+does not form. The mechanism is RCP; our primary
+contribution is the \emph{diagnosis} and the demonstration that the fair-share signal belongs in
+the network, not the endpoint. Stock HPCC remains byte-for-byte unchanged alongside.
 \end{abstract}
 
 \begin{document}
@@ -129,17 +131,20 @@ the bottleneck utilization sits at $\eta$, making the multiplicative term ${\app
 a sender cannot compute the strong multiplicative correction needed without knowing the link's
 flow count $N$.
 
-\item \hpccfs, \textbf{a switch-minimal design that instantiates the fix with RCP-style control}
-(\S\ref{sec:design}). On contended flows \hpccfs does \emph{not} use HPCC's per-hop, window-bounded
-control law; instead each switch port runs a standard RCP~\cite{dukkipati2008rcp} fair-rate update
-on aggregate load and queue, advertises that single rate in the INT header, and the sender adopts
-the path-minimum. The switch addition is minimal --- one uint64 field in a new INT header mode and
-one scalar of state per egress port --- which is where prior INT-based designs spend their
-complexity; the full deployment delta is slightly larger (a new sender ACK handler, and, in our
-prototype, rate-only operation with the per-flow window cap disabled). We are explicit that the
-mechanism is RCP, not a new control law: our contribution is showing that placing this signal at
-the switch is what closes the gap, and that doing so is cheap and leaves the existing HPCC code
-path (\texttt{cc\_mode 3}) byte-for-byte unchanged.
+\item \hpccfs, \textbf{a switch-minimal alternative operating mode for fairness-critical
+multi-bottleneck traffic} (\S\ref{sec:design}). We do not position \hpccfs as a repair of HPCC's
+control law; it is a \emph{second service mode on the same INT fabric}, intended to be selected
+for the requirement profile HPCC does not serve --- max-min fairness across multiple bottlenecks
+with lossless, PFC-free operation --- while stock HPCC continues to serve the classes it is best
+at. On contended flows each switch port runs a standard RCP~\cite{dukkipati2008rcp} fair-rate
+update on aggregate load and queue, advertises that single rate in the INT header, and the sender
+adopts the path-minimum. The switch addition is minimal --- one uint64 field in a new INT header
+mode and one scalar of state per egress port; the full deployment delta is slightly larger (a new
+sender ACK handler, and, in
+our prototype, rate-only operation with the per-flow window cap disabled). The mechanism is RCP,
+not a new control law: our contribution is showing \emph{where} the fair-share signal must live,
+and that offering it as a coexisting mode is cheap --- the existing HPCC code path
+(\texttt{cc\_mode 3}) is byte-for-byte unchanged.
 
 \item \textbf{An evaluation showing \hpccfs achieves the goal} (\S\ref{sec:eval}): max-min
 penalty ${\approx}1.005\times$ at $N=4$, zero PFC events, robust across asymmetric workloads,
@@ -149,8 +154,8 @@ seed (\S\ref{sec:jct}).
 \end{enumerate}
 
 Our framing positions the negative result (sender-only designs are insufficient in our
-experiments) as a \emph{motivation} for the positive contribution (a minimal switch extension
-that suffices on our benchmarks). To our knowledge, this is the first quantitative evidence that
+experiments) as a \emph{motivation} for the positive contribution (a coexisting, switch-minimal
+mode that meets the fairness-with-zero-PFC requirement on our benchmarks). To our knowledge, this is the first quantitative evidence that
 fair-share computation is hard to place purely at the sender in INT-style precision congestion
 control; we do not claim a formal impossibility (see Section~\ref{sec:senderonly}).
 
@@ -357,7 +362,9 @@ make the \emph{dominant} flows yield, not just nudge the victims, and (b) place 
 alone. We do not have the switch count flows and divide; instead it runs a standard RCP control
 law on aggregate load and queue (below) whose fixed point \emph{is} the max-min fair rate $C/N$
 --- the switch converges to the fair share without ever materializing $N$. We take the most
-minimal mechanism consistent with these constraints.
+minimal mechanism consistent with these constraints, packaged as an \emph{operating mode}
+selected per traffic class alongside stock HPCC on the same INT transport
+(\S\ref{sec:integration}).
 
 \paragraph{Background: RCP} The Rate Control Protocol (RCP)~\cite{dukkipati2008rcp} is a
 router-assisted congestion control in which each link advertises a \emph{single} rate $R$ to
@@ -460,7 +467,8 @@ several control intervals (Section~\ref{sec:eval}: ${\sim}4$ ms, i.e. ${\sim}10^
 21\,$\mu$s base RTT). HPCC-FS's advantage is therefore \emph{fast, path-length-independent}
 convergence, not literal one-RTT convergence.
 
-\subsection{Additive integration}
+\subsection{Additive integration and coexistence}
+\label{sec:integration}
 
 \hpccfs is \texttt{cc\_mode == 11}. The mode-3 (HPCC) and mode-10 (PINT) wire formats and
 switch/sender code paths are completely untouched; we add a fourth case to (a)
@@ -468,7 +476,13 @@ switch/sender code paths are completely untouched; we add a fourth case to (a)
 sender's mode-dispatch, and (e) one branch in the validation driver. The driver also forces the
 QP window to 0 in FS mode (rate-only control), since \texttt{var\_win} sizes the window from
 the NIC line rate rather than the bottleneck path BDP and would otherwise cap the multi-hop
-flow's effective window well below what is needed at its fair rate.
+flow's effective window well below what is needed at its fair rate. Because each mode has its
+own INT wire format and dispatch path, stock and FS traffic can in principle share a fabric with
+the mode chosen per traffic class --- the intended deployment: latency-critical short-RPC
+classes stay on stock HPCC, collective and cross-pod classes elect \hpccfs, and the FS class's
+zero-PFC operation (\S\ref{sec:queue}) does not endanger the shared lossless fabric. Coexistence
+is established at the protocol and implementation level; our experiments run one mode per
+fabric, so mixed stock+FS classes \emph{sharing links} remain future work.
 
 % ============================================================================
 \section{Evaluation}
@@ -736,9 +750,12 @@ slowdown by ${\sim}15\%$ but raises short-path mean slowdown by ${\sim}45\%$
 long flow's starvation, and workloads whose objective is short-flow FCT (the Homa/pFabric
 regime~\cite{montazeri2018homa,alizadeh2013pfabric}) may prefer that subsidy; max-min is the
 right target when multi-bottleneck flows matter --- in particular when they gate a collective,
-where the subsidy inverts into a job-level tax (\S\ref{sec:jct}). (ii)~\emph{Fabric scale}: at $k = 6, 8$
+where the subsidy inverts into a job-level tax (\S\ref{sec:jct}). In deployment this is a
+per-class \emph{mode-selection} question, not a global replacement: classes that prefer the
+subsidy stay on stock HPCC; fairness-critical classes elect \hpccfs
+(\S\ref{sec:integration}). (ii)~\emph{Fabric scale}: at $k = 6, 8$
 our scaling workload does not form persistent inter-pod contention (both schemes' penalty
-${<}1$), so the fix is exercised, but untested, where large-fabric contention would arise; a
+${<}1$), so the mode is exercised, but untested, where large-fabric contention would arise; a
 saturating workload is future work. (iii)~\emph{ECMP placement}: under ECMP an operator still
 observes a raw long/short spread (${\sim}1.3\times$ at the contended placement) that comes from
 hash load placement, not congestion control --- \hpccfs removes the CC component
@@ -905,10 +922,12 @@ multi-bottleneck workloads --- a real, robust, RTT-independent winner-take-all c
 ${\sim}2\times$ FCT penalty for the multi-bottleneck flow, up to $3.5\times$ for small such
 flows. No sender-side correction we attempted (across five representative variants) closes the
 gap, because at the $\eta$-hold equilibrium additive nudges are too slow and the sender cannot
-compute its fair share without knowing the link's flow count. A minimal extension that
+compute its fair share without knowing the link's flow count. A minimal mechanism that
 suffices on our benchmarks is \textbf{one fair-rate field} in a new INT mode plus \textbf{one
 scalar of state per switch port} (and, in our prototype, disabling the per-flow window cap in FS
-mode --- see Section~\ref{sec:design}). The resulting protocol, \hpccfs, achieves max-min fairness
+mode --- see Section~\ref{sec:design}). The resulting mode, \hpccfs, is offered alongside stock
+HPCC rather than in its place --- an option for traffic that requires multi-bottleneck max-min
+fairness with zero PFC on the same INT fabric. It achieves max-min fairness
 with penalty $1.005\times$ and zero PFC at $N = 4$ across all workloads we tested, converging in a
 few milliseconds independent of path length, while leaving the original HPCC code path unchanged.
 
