@@ -71,7 +71,7 @@ Changed file:
 Build command used:
 
 ```bash
-/opt/homebrew/bin/cmake --build /Users/tiffanyzhang/uno-hpcc/cmake-build-debug --target hpcc-validation -j 14
+/opt/homebrew/bin/cmake --build <repo>/cmake-build-debug --target hpcc-validation -j 14
 ```
 
 Smoke validation:

@@ -1,18 +1,29 @@
 # HPCC-FS: Multi-Bottleneck Fairness for High-Precision Congestion Control
 
-A research extension to **HPCC** (SIGCOMM '19) that restores max-min fairness on **multi-bottleneck**
-datacenter paths using a minimal switch extension — *one* new fair-rate field in the INT header and
-*one* scalar of state per switch port. All of our work lives under `examples/hpcc/hpcc-fs/`.
+A research project on **HPCC** (SIGCOMM '19) that diagnoses a max-min fairness failure on
+**multi-bottleneck** datacenter paths and offers **HPCC-FS**, a coexisting alternative operating mode
+on the same INT fabric — *one* new fair-rate field in the INT header and *one* scalar of state per
+switch port — for traffic that requires multi-bottleneck fairness with zero PFC. All of our work
+lives under `examples/hpcc/hpcc-fs/`.
 
 **Headline.** Stock HPCC suffers a **~2× multi-bottleneck penalty** at *N* = 2–4 (up to **3.5×**
-when the multi-bottleneck flow is small/RPC-scale) and **breaks completely at *N* ≥ 5** because the
-per-hop INT record overflows its `maxHop = 5` cap. We trace this to a structural property: a sender
-cannot compute its fair share `C/N` because the link's flow count `N` is not observable in INT — and
-five sender-only fixes all fail. **HPCC-FS** adds an RCP-style per-port fair rate, stamped path-min
-into one header field; it drives the penalty to **1.005× at *N* = 4**, stays **flat through *N* = 6**,
-holds across asymmetric sizes / staggered starts / tree fabric / *k* = 4–8 ECMP fat-tree, and
-produces **zero PFC**. Convergence is *fast and path-length-independent* (a few ms), not literal
-single-RTT. Stock HPCC (`cc_mode 3`) is left **byte-for-byte unchanged**.
+when the multi-bottleneck flow is small/RPC-scale), and HPCC's control input is **corrupted outright
+at *N* ≥ 5** because the per-hop INT record overflows its `maxHop = 5` cap (the original HPCC wire
+format). We trace this to a structural property: a sender cannot compute its fair share `C/N` because
+the link's flow count `N` is not observable in INT — and five representative sender-only corrections
+all fail (empirical evidence, not a formal impossibility). **HPCC-FS** is offered *alongside* stock
+HPCC, not in its place: it adds an RCP-style per-port fair rate stamped path-min into one header
+field, driving the penalty to **1.005× at *N* = 4**, flat through *N* = 6, across asymmetric sizes /
+staggered starts / ECMP hash seeds, with **zero PFC** — and cutting allreduce-style coflow
+job-completion time by **~21%** at every ECMP seed. Convergence is **sub-millisecond** and
+path-length-independent (~0.6 ms to within 5% of the fair share). Stock HPCC (`cc_mode 3`) is left
+**byte-for-byte unchanged**.
+
+**Coexistence (negative result).** Because HPCC-FS is a mode, we tested the two modes sharing links
+(`cc_mode 12`, [`run_mixed_mode.py`](examples/hpcc/hpcc-fs/run_mixed_mode.py)). On an *unreserved*
+queue neither class gets its fair share — an RCP port's fixed point `R = C/N` presumes every flow on
+the port obeys `R`, so per-class coexistence needs a **reserved bandwidth share**, not free
+competition. We report this rather than hide it.
 
 **Defensibility evidence (paper §5):** a window-cap ablation (rate-only is necessary), parameter
 sensitivity (penalty 1.004–1.008× across α, β, startup fraction, min-rate — the RCP defaults are not
@@ -61,10 +72,10 @@ committed config snapshot.
 
 | File | What it is |
 |---|---|
-| `paper.pdf` | Compiled 9-page paper (ACM `acmart` sigconf), ready to view |
+| `paper.pdf` | Compiled 11-page paper (ACM `acmart` sigconf), ready to view |
 | `paper.tex` + `paper.bib` | LaTeX sources |
 | `paper-ipccc.pdf` + `paper-ipccc.tex` | IEEE-format submission version (IPCCC), same content |
-| `talk/ipccc2026-talk.pptx` / `.pdf` | Conference talk slides (18 slides, speaker notes on every slide) |
+| `talk/ipccc2026-talk.pptx` / `.pdf` | Conference talk slides (19 slides, speaker notes on every slide) |
 | `figures/*.png` | All paper figures (regenerated live by `make_figures.py`) |
 
 **Build the PDF.** From `examples/hpcc/hpcc-fs/`:
@@ -85,7 +96,7 @@ pdflatex paper && bibtex paper && pdflatex paper && pdflatex paper
 | F5 | Trace diagnosis | Winner-take-all collapse: long flow at 0.4 Gbps, cross flows at 23 Gbps for 18 ms |
 | F6 | HPCC-MB ablation scaffold | New `mb_mode` knob; `mb_mode 0` = stock HPCC, byte-identical |
 | F7 | Five sender-only fixes fail | A sender cannot compute `C/N` without knowing the flow count `N` |
-| F8 | HPCC-FS works | *N* = 4 penalty **1.005×**, all flows at fair share in a few ms |
+| F8 | HPCC-FS works | *N* = 4 penalty **1.005×**, all flows at fair share sub-ms |
 | F9 | Robustness under HPCC-FS | Penalty within 1.0 ± 0.08 across all six F2 scenarios |
 | F10 | Smoothed startup | **PFC = 0 everywhere** (two-part smoothing) |
 | F11 | Tree fabric topology | Stock 1.36× → HPCC-FS **1.003×** |

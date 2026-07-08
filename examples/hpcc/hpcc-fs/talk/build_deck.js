@@ -6,7 +6,8 @@ const pptxgen = require("pptxgenjs");
 const NAVY = "1E2761", ICE = "CADCFC", RED = "C0504D", BLUE = "4F81BD";
 const INK = "1F2733", MUT = "5B6675", PAPER = "FFFFFF";
 const REDT = "F7E9E8", BLUET = "E9F0F8", ICET = "EEF3FB", GREENOK = "1A7F37";
-const FIG = "/Users/tiffanyzhang/uno-hpcc/examples/hpcc/hpcc-fs/figures";
+const path = require("path");
+const FIG = path.join(__dirname, "..", "figures");
 const sh = () => ({ type: "outer", color: "000000", blur: 7, offset: 2, angle: 45, opacity: 0.14 });
 
 let p = new pptxgen();
@@ -539,5 +540,5 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("Two common questions. Mixed sizes: yes, short flows lose some of the headroom they were borrowing from the starved long flow — that's what fairness means; policy beyond max-min is future work. And the odd N>=5 numbers for stock HPCC are an artifact: the INT record physically overflows at 5 hops, so the controller is reading garbage — that's a bug surface our single-field format simply doesn't have.");
 }
 
-p.writeFile({ fileName: "/Users/tiffanyzhang/uno-hpcc/examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pptx" })
+p.writeFile({ fileName: path.join(__dirname, "ipccc2026-talk.pptx") })
   .then(() => console.log("deck written"));

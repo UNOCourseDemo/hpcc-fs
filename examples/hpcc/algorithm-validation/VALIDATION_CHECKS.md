@@ -9,7 +9,7 @@ Date: 2026-05-16
 Build command:
 
 ```bash
-/opt/homebrew/bin/cmake --build /Users/tiffanyzhang/uno-hpcc/cmake-build-debug --target hpcc-validation -j 14
+/opt/homebrew/bin/cmake --build <repo>/cmake-build-debug --target hpcc-validation -j 14
 ```
 
 Result: passed. The build still emits existing compiler warnings, but the `hpcc-validation` target links successfully.

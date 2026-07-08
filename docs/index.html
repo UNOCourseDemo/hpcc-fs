@@ -65,16 +65,21 @@
     switch state. We show its design has a structural fairness failure on <em>multi-bottleneck</em>
     paths increasingly common in cross-pod and disaggregated datacenter traffic: a flow crossing
     <em>k</em> shared bottlenecks is starved by ~2× at <em>k</em> = 2–4, by up to 3.5× when that
-    flow is short (RPC-scale), and breaks completely beyond <em>k</em> = 4 as the per-hop INT record
-    overflows its <code>maxHop = 5</code> cap. A five-variant sender-side ablation shows the gap is
-    not closable by representative sender-only designs: a sender cannot compute the <em>C/N</em> fair
-    share because the link's flow count <em>N</em> is not observable in INT. Placing a single
-    RCP-style fair-rate signal at the switch — one 64-bit field in a new INT mode and one scalar of
-    state per egress port — closes it: HPCC-FS drives the penalty from 1.96× to <strong>1.005×</strong>
-    at <em>N</em> = 4, stays flat through <em>N</em> = 6, holds across asymmetric sizes, staggered
-    starts, and a <em>k</em> = 4 ECMP fat-tree, with <strong>zero PFC</strong>. Our primary
-    contribution is the <em>diagnosis</em> and the demonstration that the fix belongs at the switch.
-    The stock HPCC code path is left byte-for-byte unchanged.</p>
+    flow is short (RPC-scale), and HPCC's control input is corrupted outright beyond <em>k</em> = 4
+    as the per-hop INT record overflows its <code>maxHop = 5</code> cap. Five representative
+    sender-side corrections fail to close the gap (empirical evidence, not a formal impossibility):
+    a sender cannot compute the <em>C/N</em> fair share because the link's flow count <em>N</em> is
+    not observable in INT. We argue the fair-share signal must live at the switch, and offer
+    <strong>HPCC-FS not as a repair of HPCC but as a coexisting alternative operating mode</strong>
+    on the same INT fabric — one 64-bit field in a new INT mode and one fair-rate scalar per egress
+    port — for traffic that requires multi-bottleneck max-min fairness with zero PFC. It drives the
+    penalty from 1.96× to <strong>1.005×</strong> at <em>N</em> = 4, holds across asymmetric sizes,
+    staggered starts, and ECMP hash seeds with <strong>zero PFC</strong>, and cuts allreduce-style
+    coflow job-completion time by <strong>~21%</strong> at every ECMP seed. We report a negative
+    result too: two modes sharing an <em>unreserved</em> queue do not each get their fair share, so
+    per-class coexistence needs a reserved bandwidth share. Our primary contribution is the
+    <em>diagnosis</em> and the demonstration that the fair-share signal belongs in the network, not
+    the endpoint. Stock HPCC remains byte-for-byte unchanged alongside.</p>
   </section>
 
   <section>
