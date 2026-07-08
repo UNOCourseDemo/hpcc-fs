@@ -54,7 +54,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   ], { x: 0.7, y: 3.9, w: 8.6, h: 0.75, align: "center", fontFace: "Calibri" });
   s.addText("45th IEEE IPCCC · Austin, Texas · November 2026", {
     x: 0.7, y: 4.85, w: 8.6, h: 0.35, fontSize: 12, color: "8FA6CF", fontFace: "Calibri", align: "center" });
-  s.addNotes("Thank you. This talk is about a fairness blind spot in HPCC — the SIGCOMM'19 INT-based congestion control — and a deliberately minimal switch-side fix. The one-line story: a flow crossing several bottlenecks gets half its fair share, no sender-side fix we tried can repair it, and one fair-rate scalar per switch port repairs it completely.");
+  s.addNotes("Thank you. This talk is about a fairness blind spot in HPCC — the SIGCOMM'19 INT-based congestion control — and a deliberately minimal switch-side alternative: an operating mode that coexists with stock HPCC on the same fabric. The one-line story: a flow crossing several bottlenecks gets half its fair share, no sender-side correction we tried can close the gap, and one fair-rate scalar per switch port — offered as a per-class mode, not a replacement — closes it completely.");
 }
 
 // ============================================================ 2 · HPCC in 60s
@@ -242,7 +242,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 9 · RCP in 60s
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "The fix, part 1", "RCP: the link advertises one fair rate to every flow");
+  titleBar(s, "The alternative, part 1", "RCP: the link advertises one fair rate to every flow");
   s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.5, w: 8.85, h: 1.0, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
   s.addText("R ← R · (1 + (α·(C − y) − β·q/d) / C)", {
     x: 0.85, y: 1.6, w: 8.35, h: 0.8, fontSize: 19, bold: true, color: NAVY, fontFace: "Courier New", align: "center", valign: "middle" });
@@ -270,7 +270,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 10 · worked example
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "The fix, part 2", "Worked example: path-min gives network-wide max-min");
+  titleBar(s, "The alternative, part 2", "Worked example: path-min gives network-wide max-min");
   const yS = 1.75;
   // switches
   const sw = (x, label) => {
@@ -332,7 +332,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.4, w: 4.3, h: 0.55, fill: { color: NAVY }, rectRadius: 0.08 });
   s.addText("stock HPCC (cc_mode 3): byte-for-byte unchanged", { x: 0.6, y: 4.4, w: 4.3, h: 0.55, align: "center", valign: "middle", fontSize: 12, bold: true, color: PAPER, fontFace: "Calibri", margin: 0 });
   s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 5.15, y: 4.4, w: 4.3, h: 0.55, fill: { color: ICE }, rectRadius: 0.08 });
-  s.addText("one 8-byte field replaces the per-hop record", { x: 5.15, y: 4.4, w: 4.3, h: 0.55, align: "center", valign: "middle", fontSize: 12, bold: true, color: NAVY, fontFace: "Calibri", margin: 0 });
+  s.addText("an operating mode selected per traffic class — not a replacement", { x: 5.15, y: 4.4, w: 4.3, h: 0.55, align: "center", valign: "middle", fontSize: 12, bold: true, color: NAVY, fontFace: "Calibri", margin: 0 });
   s.addNotes("The full mechanism fits on one slide, and that's the point. Per egress port: one fair-rate scalar updated by the RCP rule. On the wire: a new INT mode carrying a single 64-bit field, min-aggregated hop by hop — 8 bytes per packet regardless of path length, versus 8 bytes per hop for stock HPCC. At the sender: one new ACK handler that adopts the path minimum. Two honest notes: FS mode runs rate-only — the per-flow window cap is off, and we'll show that's necessary, not incidental — and the stock code path is untouched, byte for byte.");
 }
 
@@ -376,9 +376,41 @@ function chip(s, x, y, w, txt, fg, bg) {
   ];
   s.addTable(rows2, { x: 6.45, y: 1.6, w: 3.1, colW: [1.5, 0.7, 0.9], fontFace: "Calibri", fontSize: 11.5,
     color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.44, valign: "middle", margin: 0.04 });
-  s.addText("† oracle-normalized (removes ECMP placement luck). Path-min is path-invariant — ECMP needs no design change.", {
+  s.addText("† oracle-normalized (removes ECMP placement luck). Across 5 hash seeds the raw ratio is placement-dominated; HPCC-FS ≤ stock at every seed.", {
     x: 6.45, y: 3.75, w: 3.1, h: 1.1, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", margin: 0 });
   s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — HPCC-FS stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.");
+}
+
+// ============================================================ 13b · coflow JCT
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Results", "The job is gated by its slowest flow: \u221221% JCT");
+  s.addChart(p.charts.BAR, [
+    { name: "stock HPCC", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [23.27, 22.44, 23.22, 22.33, 23.11] },
+    { name: "HPCC-FS", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [17.99, 17.96, 17.99, 17.97, 17.92] },
+  ], {
+    x: 0.55, y: 1.45, w: 5.6, h: 3.3, barDir: "col", chartColors: [RED, BLUE],
+    chartArea: { fill: { color: "FFFFFF" } }, catAxisLabelColor: MUT, valAxisLabelColor: MUT,
+    valGridLine: { color: "E4E9F0", size: 0.5 }, catGridLine: { style: "none" },
+    showValue: false, valAxisMaxVal: 26, valAxisMinVal: 0,
+    showLegend: true, legendPos: "b", legendColor: MUT, showTitle: false,
+  });
+  s.addText("16-flow ring allreduce, k=4 fat-tree \u2014 JCT = slowest flow (ms), 5 ECMP hash seeds", {
+    x: 0.35, y: 4.83, w: 6.0, h: 0.35, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
+  const stats = [
+    ["\u221221%", "mean JCT \u2014 improves at every seed (+19.5\u2026+22.7%)", BLUE, BLUET],
+    ["17.9\u201318.0 ms", "FS JCT is placement-invariant (stock 22.3\u201323.3)", BLUE, BLUET],
+    ["~3\u00d7 faster", "short background flows in this mix \u2014 max-min removes the placement lottery", GREENOK, "E9F4EC"],
+  ];
+  stats.forEach((t, i) => {
+    const y = 1.45 + i * 1.13;
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.35, y, w: 3.15, h: 0.98, fill: { color: t[3] }, rectRadius: 0.09, shadow: sh() });
+    s.addText([
+      { text: t[0], options: { bold: true, fontSize: 17, color: t[2], fontFace: "Cambria", breakLine: true } },
+      { text: t[1], options: { fontSize: 10.5, color: INK } },
+    ], { x: 6.55, y: y + 0.08, w: 2.8, h: 0.86, fontFace: "Calibri", margin: 0, valign: "middle" });
+  });
+  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring allreduce across five ECMP hash seeds: HPCC-FS cuts job completion time about 21 percent at every seed, and makes it placement-invariant. And a nuance we like being honest about: in this mix the short background flows also got three times faster — under winner-take-all, whether a short flow wins or loses is a placement lottery; max-min removes the lottery.");
 }
 
 // ============================================================ 14 · defensibility
@@ -418,7 +450,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   const s = p.addSlide(); s.background = { color: PAPER };
   titleBar(s, "Positioning", "What this is — and what it isn’t");
   const L = [
-    ["The mechanism is RCP.", "We claim the diagnosis and the placement, not a new control law. Placing one fair-rate signal at the switch is what closes the gap."],
+    ["The mechanism is RCP; HPCC-FS is a mode, not a repair.", "We claim the diagnosis and the placement. HPCC-FS coexists with stock HPCC per traffic class; mixed classes sharing links are future work."],
     ["Simulation-only, three topology families.", "No testbed; no head-to-head with Bolt / PowerTCP (would require re-implementing them). The simulator re-port reproduces the original HPCC baselines end-to-end."],
     ["Convergence is ~4 ms, not one RTT.", "Fast and path-length-independent — the per-port estimate needs ~10² RTTs to settle."],
   ];
@@ -442,11 +474,11 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 16 · conclusion (dark)
 {
   const s = p.addSlide(); s.background = { color: NAVY };
-  titleBar(s, "Conclusion", "One field, one scalar — fairness restored", true);
+  titleBar(s, "Conclusion", "One field, one scalar — a coexisting fairness mode", true);
   const rows = [
     ["Diagnosis", "HPCC starves multi-bottleneck flows ~2× (3.5× small flows); breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
     ["Negative result", "Five sender-only fixes fail: at η-hold, no strong move exists without the flow count N.", ICE],
-    ["HPCC-FS", "One RCP fair-rate field, one scalar per port → 1.005×, zero PFC, robust, stock path untouched.", BLUE],
+    ["HPCC-FS", "A per-class mode alongside HPCC: 1.005×, zero PFC, −21% coflow JCT, stock path untouched.", BLUE],
   ];
   rows.forEach((r, i) => {
     const y = 1.55 + i * 1.0;
