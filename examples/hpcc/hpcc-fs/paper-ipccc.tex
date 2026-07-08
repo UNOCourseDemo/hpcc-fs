@@ -180,15 +180,14 @@ traverses all $N$ bottlenecks; one ``cross'' flow traverses each single bottlene
 the max-min fair rate is 12.5 Gbps for every flow. All experiments are deterministic: each
 configuration produces byte-identical artifacts across repeated runs (verified).
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig_topo_parking.png}
+\includegraphics[width=0.82\textwidth]{fig_topo_parking.png}
 \caption{Parking-lot benchmark at $N = 4$. The long flow $L_s {\to} L_d$ crosses every
 bottleneck; each cross flow $c_i^s {\to} c_i^d$ traverses exactly one. Host links are not
 bottlenecks.}
-
 \label{fig:topo-parking}
-\end{figure}
+\end{figure*}
 
 \paragraph{Metric.} We compare each flow's actual flow completion time (FCT) against an
 idealized \textbf{fluid max-min oracle} --- a continuous bandwidth-sharing model with no protocol
@@ -516,7 +515,7 @@ footprint. All \hpccfs runs have zero PFC events.
 
 \subsection{Structurally different topologies}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
 \subfloat[Tree fabric --- unique shortest paths, no ECMP.\label{fig:topo-tree}]{\includegraphics[width=0.46\textwidth]{fig_topo_tree.png}}\hfill
 \subfloat[$k = 4$ ECMP fat-tree (4 pods).\label{fig:topo-ft}]{\includegraphics[width=0.50\textwidth]{fig_topo_fattree.png}}
@@ -525,7 +524,7 @@ footprint. All \hpccfs runs have zero PFC events.
 crossing four switches. \textbf{(b)} Canonical $k=4$ fat-tree (4 cores, 8 aggs, 8 edges, 16 hosts
 in 4 pods); the highlighted line is a representative inter-pod 5-switch path.}
 \label{fig:topos}
-\end{figure}
+\end{figure*}
 
 \paragraph{Tree fabric (3-tier, no ECMP).} A 3-tier tree with unique shortest paths (15 nodes;
 25 Gbps inter-switch, 100 Gbps host; Figure~\ref{fig:topo-tree}). Stock penalty
