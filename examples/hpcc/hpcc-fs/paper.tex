@@ -110,7 +110,12 @@ Modern datacenter workloads, however, increasingly involve traffic that traverse
 storage, and multi-tenant flows that share aggregation and core layers. Whether HPCC's design
 still delivers fair, low-latency service in these settings has not been carefully measured.
 
-We address that question with a deterministic, oracle-grounded methodology. Our contributions:
+We address that question with a deterministic, oracle-grounded methodology. Our
+congestion-control stack is a refactored re-port of the original HPCC ns-3 simulator onto a tagged
+ns-3.45 release; before drawing any conclusion from it we validated the re-port by reproducing the
+original paper's baseline comparisons across five schemes and two production workloads
+(\S\ref{sec:eval}), and the full reproduction record and raw results are public. Our
+contributions:
 
 \begin{enumerate}
 \item \textbf{An empirical characterization} of HPCC's multi-bottleneck behaviour using a
@@ -527,7 +532,12 @@ ablation suite. The simulator is a refactored re-port of the original HPCC ns-3 
 tagged ns-3.45 release; before using it here we verified that the re-port still reproduces the
 original paper's baseline comparisons (HPCC vs.\ DCQCN, TIMELY, DCTCP, and PINT across WebSearch
 and FB-Hadoop workloads at 30--70\% load on a 320-server fat-tree). The full reproduction record
---- per-run configurations, results, and analysis --- ships with the artifact.
+--- per-run configurations, results, and analysis --- ships with the
+artifact,\footnote{Reproduction record and methodology:
+\url{https://github.com/UNOCourseDemo/hpcc-fs/tree/main/examples/hpcc/repro-verification}. The raw
+per-run results (554\,MB compressed) are archived at
+\url{https://1drv.ms/f/c/6052297178cce52b/IgAsSQ7gNfdhQrNejod27CpkAYQs8xZs4QtGc_KKVWZjQLs}.}
+and its verdict is that the re-port matches the original paper's central findings.
 
 \subsection{Headline: N-sweep}
 
