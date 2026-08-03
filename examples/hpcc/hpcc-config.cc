@@ -70,6 +70,10 @@ void HpccConfig::loadFromYaml(const std::string& filename) {
     if (config["fs_init_frac"])     fs_init_frac = config["fs_init_frac"].as<double>();
     if (config["ecmp_seed_offset"]) ecmp_seed_offset = config["ecmp_seed_offset"].as<uint32_t>();
     if (config["mix_fs_dport"])     mix_fs_dport = config["mix_fs_dport"].as<uint32_t>();
+    if (config["fs_rcp_window"])    fs_rcp_window = config["fs_rcp_window"].as<bool>();
+    if (config["dwrr_weights"])
+        for (auto it : config["dwrr_weights"])
+            dwrr_weights[it.first.as<uint32_t>()] = it.second.as<double>();
     if (config["fs_disable_window"]) fs_disable_window = config["fs_disable_window"].as<bool>();
     if (config["pint_log_base"])    pint_log_base = config["pint_log_base"].as<double>();
     if (config["pint_prob"])        pint_prob = config["pint_prob"].as<double>();

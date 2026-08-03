@@ -1,4 +1,4 @@
-% paper.tex — HPCC-FS submission skeleton (ACM acmart conference template).
+% paper.tex — RDMA-RCP (formerly HPCC-FS) submission skeleton (ACM acmart conference template).
 % Compile: pdflatex paper && bibtex paper && pdflatex paper && pdflatex paper
 % Companion file: paper.bib
 
@@ -22,12 +22,12 @@
 \graphicspath{{figures/}}
 
 % Convenience macros
-\newcommand{\hpccfs}{\textsc{HPCC-FS}\xspace}
+\newcommand{\hpccfs}{\textsc{RDMA-RCP}\xspace}
 \usepackage{xspace}
 
-\title[HPCC-FS: Multi-Bottleneck Fairness]{Multi-Bottleneck Fairness for High-Precision Congestion Control}
+\title[Multi-Bottleneck Fairness on RDMA Fabrics]{Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study}
 
-\subtitle{A Coexisting Switch-Minimal Mode for Multi-Bottleneck Max-Min Fairness without PFC}
+\subtitle{HPCC's Failure, the Limits of Sender-Side Control, and RDMA-RCP: an RCP Service Mode over In-Network Telemetry}
 
 \author{Haoyu Wang}
 \affiliation{%
@@ -62,31 +62,25 @@
 \email{xiaoqianzhang@unomaha.edu}
 
 \begin{abstract}
-HPCC (SIGCOMM '19) achieves near-optimal flow completion time for single-bottleneck RDMA
-workloads via INT-based precision congestion control with no per-flow switch state. We show its
-design has a structural fairness failure on \emph{multi-bottleneck} paths --- increasingly common
-in cross-pod and disaggregated datacenter traffic: a flow crossing several shared bottlenecks is
-starved by ${\sim}2\times$ relative to single-bottleneck competitors, and HPCC's control input is
-corrupted outright once the per-hop INT record overflows its hop budget --- a cap inherited from
-HPCC's original wire format.
-The collapse is winner-take-all, RTT-independent, and survives HPCC's own multi-rate mode and INT
-compression (PINT). Five representative sender-only corrections fail to close the gap, and we give
-the structural reason: at the target-utilization equilibrium every flow holds its rate, and the
-link's flow count is not observable in INT, leaving only additive redistribution that is orders of
-magnitude too slow (we claim empirical evidence, not formal impossibility). We argue the
-fair-share signal must live at the switch, and offer \hpccfs not as a repair of HPCC but as an
-\emph{alternative operating mode on the same INT fabric} for traffic that requires
-multi-bottleneck max-min fairness with zero PFC: one 64-bit header field and one fair-rate scalar (three words of state)
-per egress port carry an RCP-style fair rate whose fixed point is the max-min share, reached
-\emph{without ever counting flows}.
-On contention benchmarks the mode drives the multi-bottleneck penalty to ${\approx}1.0\times$
-across bottleneck counts, asymmetric flow sizes, staggered starts, and ECMP hash seeds, with zero
-PFC; on allreduce-style coflows --- where the job is gated by its slowest, multi-bottleneck flows
---- it cuts job completion time by ${\sim}21\%$ (mean; $19.5$--$22.7\%$) at every ECMP seed. We state explicitly when the
-mode should \emph{not} be selected (mixed short-flow workloads) and where fabric-scale contention
-does not form. The mechanism is RCP; our primary
-contribution is the \emph{diagnosis} and the demonstration that the fair-share signal belongs in
-the network, not the endpoint. Stock HPCC remains byte-for-byte unchanged alongside.
+Modern datacenter traffic increasingly crosses several contended links in series, yet deployable
+RDMA congestion control is evaluated almost exclusively on single-bottleneck benchmarks. We
+present an empirical study of multi-bottleneck fairness on lossless RDMA fabrics. On a
+parameterized parking-lot benchmark with a fluid max-min oracle, \emph{every} deployable scheme
+we test is unfair to the multi-bottleneck flow --- DCQCN $1.7$--$2.3\times$, TIMELY
+$1.8$--$2.0\times$, DCTCP $1.6$--$1.8\times$, HPCC $1.9$--$2.0\times$ --- growing with
+bottleneck count and robust to start-time jitter. For HPCC we localize the mechanism: a
+winner-take-all equilibrium in which the multi-bottleneck flow collapses to ${\sim}0.4$ Gbps.
+Six sender-only corrections fail, including a sender-side mirror of RCP driven by the same INT
+signals --- evidence that the obstacle is not information but \emph{consistency}: max-min needs
+one shared reference rate per link, and private per-sender estimates never agree. Placing that
+reference at the switch --- \hpccfs, an RCP service mode carried in one 64-bit INT field with one
+scalar of state per port --- restores the max-min allocation (penalty ${\approx}1.005\times$)
+with zero PFC, rate-only or with a canonical $cwnd = R \cdot RTT$ window, and cuts
+allreduce-style coflow completion time by ${\sim}21\%$ at every ECMP seed. We also measure the
+deployment boundary: RCP-mode and HPCC traffic do not coexist fairly on a shared link --- even
+under a weighted-DRR reservation, because the classes' control signals remain port-global ---
+so per-class deployment needs sliced telemetry or a separate fabric. Stock HPCC remains
+byte-for-byte unchanged alongside.
 \end{abstract}
 
 \begin{document}
@@ -98,72 +92,61 @@ the network, not the endpoint. Stock HPCC remains byte-for-byte unchanged alongs
 % ============================================================================
 
 HPCC~\cite{li2019hpcc} and its derivatives represent the state of the art in datacenter RDMA
-congestion control. Their design philosophy is unusually clean: the switch stamps raw per-hop
-state (transmitted bytes, queue length, link rate) into INT headers; the sender computes a
-precise utilization estimate and applies a multiplicative-increase, multiplicative-decrease
-update toward a target utilization $\eta$. The switch is stateless per flow; the wire format
-adds only a few bytes per hop; and on the canonical single-bottleneck benchmarks HPCC matches
-or beats DCQCN, TIMELY, and DCTCP on flow completion time and queueing.
+congestion control: the switch stamps raw per-hop state into INT headers, and the sender computes
+a precise utilization estimate toward a target $\eta$. On the canonical single-bottleneck
+benchmarks HPCC matches or beats DCQCN, TIMELY, and DCTCP on flow completion time and queueing
+--- and that is where deployable RDMA congestion control is, almost exclusively, evaluated.
 
-Modern datacenter workloads, however, increasingly involve traffic that traverses
-\emph{multiple contended links} in series: cross-pod ML allreduce, disaggregated memory and
-storage, and multi-tenant flows that share aggregation and core layers. Whether HPCC's design
-still delivers fair, low-latency service in these settings has not been carefully measured.
+Modern datacenter traffic, however, increasingly crosses \emph{several contended links in
+series}: cross-pod ML collectives, disaggregated memory and storage, multi-tenant aggregation
+and core layers. The practical stake is concrete: a collective completes when its
+\emph{slowest} flow completes, and the slowest flows are precisely the cross-fabric,
+multi-bottleneck ones. On a 16-flow ring allreduce over a $k{=}4$ fat-tree, we measure stock
+HPCC inflating job completion time by ${\sim}27\%$ over what max-min allocation delivers ---
+at every ECMP hash seed we test (\S\ref{sec:jct}). Whether deployable RDMA congestion control
+is fair to such traffic has not been carefully measured. This paper measures it.
 
-We address that question with a deterministic, oracle-grounded methodology. Our
-congestion-control stack is a refactored re-port of the original HPCC ns-3 simulator onto a tagged
-ns-3.45 release; before drawing any conclusion from it we validated the re-port by reproducing the
-original paper's baseline comparisons across five schemes and two production workloads
-(\S\ref{sec:eval}), and the full reproduction record and raw results are public. Our
-contributions:
+We proceed with a deterministic, oracle-grounded methodology. Our congestion-control stack is a
+refactored re-port of the original HPCC ns-3 simulator onto a tagged ns-3.45 release; before
+drawing any conclusion from it we validated the re-port by reproducing the original paper's
+baseline comparisons across five schemes and two production workloads (\S\ref{sec:eval}), and
+the full reproduction record and raw results are public. Our findings:
 
 \begin{enumerate}
-\item \textbf{An empirical characterization} of HPCC's multi-bottleneck behaviour using a
-parameterized parking-lot benchmark and a fluid max-min oracle (\S\ref{sec:bg}). That a
-load-based scheme inherits some multi-bottleneck unfairness is folk knowledge; what the
-characterization adds is mechanism and magnitude that the folk claim does not predict: the
-failure is \emph{winner-take-all} (the long flow collapses to ${\sim}0.4$ Gbps against
-${\sim}23$ Gbps competitors, a ${\sim}1.9\times$ FCT penalty at $N = 2$--$4$, $3.5\times$ for
-small flows), \emph{RTT-independent} (equalizing RTTs does not move it), robust to flow-size
-asymmetry and start staggering, immune to HPCC's own per-hop multi-rate mode and to INT
-compression (PINT), and compounded by a \emph{wire-format} failure --- beyond four bottlenecks
-the per-hop INT record overflows its 5-hop budget and the control input is corrupted outright.
+\item \textbf{The failure is endemic, and we characterize HPCC's instance of it}
+(\S\ref{sec:bg}, \S\ref{sec:endemic}). Every deployable scheme we test is unfair to the
+multi-bottleneck flow --- DCQCN $1.70$--$2.32\times$, TIMELY $1.83$--$2.01\times$, DCTCP
+$1.61$--$1.78\times$, HPCC $1.90$--$1.96\times$ at $N = 2$--$4$ --- all growing with bottleneck
+count, and robust to start-time jitter. For HPCC we isolate the mechanism: the failure is
+\emph{winner-take-all} (the long flow collapses to ${\sim}0.4$ Gbps against ${\sim}23$ Gbps
+competitors; $3.5\times$ for small flows), RTT-independent, immune to HPCC's own per-hop
+multi-rate mode and to INT compression (PINT), and compounded past four bottlenecks by a
+wire-format cap ($\texttt{maxHop}=5$) that corrupts the control input. A single-bottleneck
+control ($N{=}1$: $1.10$--$1.39\times$ pairwise spread, direction set by arrival order)
+separates HPCC's baseline rate lottery from the systematic multi-bottleneck penalty on top.
 
-\item \textbf{A negative result for sender-only fixes} (\S\ref{sec:senderonly}). We implement
-five sender-side variants of HPCC ranging from a $k$-aware additive boost to a global
-share-aware update rule, and show all five fail to close the gap. We give a structural
-explanation: at the multi-bottleneck equilibrium every flow holds its current rate (because
-the bottleneck utilization sits at $\eta$, making the multiplicative term ${\approx}1$), and
-a sender cannot compute the strong multiplicative correction needed without knowing the link's
-flow count $N$.
+\item \textbf{Sender-side control cannot close the gap --- and the reason is consistency, not
+information} (\S\ref{sec:senderonly}). We evaluate six sender-only designs: five heuristics,
+plus the strongest possible variant --- a full sender-side mirror of the RCP recursion driven
+by the same INT-visible inputs the switch would use. The mirror still fails ($1.56\times$
+even with synchronized starts; $1.65\times$/$0.81\times$ under staggered arrival, the
+\emph{direction} set by arrival order), while the identical law at the switch holds
+${\approx}1.0\times$. Max-min requires all flows at a link to adopt \emph{one shared reference
+rate}; private multiplicative estimates preserve their initial disagreement. We present this as
+controlled empirical evidence, not a formal impossibility.
 
-\item \hpccfs, \textbf{a switch-minimal alternative operating mode for fairness-critical
-multi-bottleneck traffic} (\S\ref{sec:design}). We do not position \hpccfs as a repair of HPCC's
-control law; it is a \emph{second service mode on the same INT fabric}, intended to be selected
-for the requirement profile HPCC does not serve --- max-min fairness across multiple bottlenecks
-with lossless, PFC-free operation --- while stock HPCC continues to serve the classes it is best
-at. On contended flows each switch port runs a standard RCP~\cite{dukkipati2008rcp} fair-rate
-update on aggregate load and queue, advertises that single rate in the INT header, and the sender
-adopts the path-minimum. The switch addition is minimal --- one uint64 field in a new INT header
-mode and one scalar of state per egress port; the full deployment delta is slightly larger (a new
-sender ACK handler, and, in
-our prototype, rate-only operation with the per-flow window cap disabled). The mechanism is RCP,
-not a new control law: our contribution is showing \emph{where} the fair-share signal must live,
-and that offering it as a coexisting mode is cheap --- the existing HPCC code path
-(\texttt{cc\_mode 3}) is byte-for-byte unchanged.
-
-\item \textbf{An evaluation showing \hpccfs achieves the goal} (\S\ref{sec:eval}): max-min
-penalty ${\approx}1.005\times$ at $N=4$, zero PFC events, robust across asymmetric workloads,
-generalizing to a tree-fabric and to a $k = 4$ ECMP fat-tree --- and, on allreduce-style
-coflows where the slowest flow gates the job, a ${\sim}21\%$ mean JCT reduction at every ECMP hash
-seed (\S\ref{sec:jct}).
+\item \textbf{An RCP service mode over INT restores max-min, verified end to end}
+(\S\ref{sec:design}, \S\ref{sec:eval}). \hpccfs carries a switch-computed RCP fair rate in one
+64-bit INT field with one scalar of state per egress port, selected per traffic class alongside
+byte-for-byte unchanged stock HPCC. It reaches penalty ${\approx}1.005\times$ across bottleneck
+counts, asymmetric sizes, staggered and jittered starts, and ECMP hash seeds, with zero PFC ---
+operating rate-only or with a canonical RCP window ($cwnd = R \cdot \mathrm{baseRTT}$), and
+cutting allreduce coflow JCT by ${\sim}21\%$ at every seed. We equally report its deployment
+boundary: sharing a link with stock HPCC serves neither class --- even under a weighted-DRR
+reservation, because both controllers still read port-global telemetry
+(\S\ref{sec:integration}); per-class deployment needs sliced signals or a separate fabric. The mechanism is RCP --- we claim
+the measurement study and the placement result, not a new control law.
 \end{enumerate}
-
-Our framing positions the negative result (sender-only designs are insufficient in our
-experiments) as a \emph{motivation} for the positive contribution (a coexisting, switch-minimal
-mode that meets the fairness-with-zero-PFC requirement on our benchmarks). To our knowledge, this is the first quantitative evidence that
-fair-share computation is hard to place purely at the sender in INT-style precision congestion
-control; we do not claim a formal impossibility (see Section~\ref{sec:senderonly}).
 
 \paragraph{Artifacts.} The implementation, the topology/workload generators, the max-min oracle,
 and deterministic scripts that regenerate the figures (\texttt{make\_figures.py}) and the
@@ -261,40 +244,32 @@ header~\cite{hpccrepo}, consistent with the paper's 42-byte worst-case INT overh
 switches --- \emph{within} the INT budget --- so the retained $N = 2$--$4$ measurements are
 structurally free of the overflow.}
 
-\paragraph{Robustness.} Perturbations across flow size and start time give penalties of
-$1.81\times$--$3.53\times$ (Figure~\ref{fig:robustness}): stable at $1.8$--$2.0\times$ and
-\emph{worsening} dramatically ($3.5\times$) for small multi-bottleneck flows --- the
-latency-sensitive RPC / control case. Even an established long flow gets displaced when cross
-flows arrive.
+\paragraph{Robustness.} Size and start-time perturbations give $1.81$--$3.53\times$
+(Figure~\ref{fig:robustness}), worst ($3.5\times$) when the multi-bottleneck flow is small ---
+the latency-sensitive RPC case. \emph{Multi-rate HPCC} (per-hop EWMA, $\min_i Rc_i$) helps but
+does not fix it: $1.44/1.50/1.75\times$ at $N = 2/3/4$, still growing with $N$.
+\emph{RTT-equalization rules out RTT bias:} the penalty stays ${\sim}1.9\times$ across a
+$4.5\times$ sweep of cross-flow RTTs, including cross flows with up to $1.8\times$ the long
+flow's RTT --- this is not RTT unfairness.
 
-\paragraph{HPCC's own multi-rate mode.} Multi-rate HPCC (per-hop EWMA, sender takes
-$\min_i Rc_i$) helps but does not fix the gap: $1.44 / 1.50 / 1.75\times$ at $N = 2/3/4$ ---
-still growing with bottleneck count.
-
-\paragraph{RTT-equalization rules out RTT unfairness.} Sweeping the bottleneck link delay while
-holding $N$ fixed, the penalty is essentially flat at ${\sim}1.9\times$ across cross-flow RTTs
-spanning $10\times$ the long flow's RTT (including cases where cross flows have \emph{longer}
-RTT than the long flow). The multi-bottleneck penalty is \textbf{not} RTT unfairness.
-
-\paragraph{Trace diagnosis.} A per-flow throughput trace at $N = 4$ (Figure~\ref{fig:rate-trace}
-left) shows the qualitative failure: the long flow collapses to ${\sim}0.38$ Gbps while the four
-cross flows hold ${\sim}23.2$ Gbps each for the entire 19 ms contention window; only after the
-cross flows complete does the long flow take the pipe. There are zero PFC events and zero loss.
-The collapse is ``winner-take-all'': at every shared link the single-bottleneck cross flow
-wins locally and the long flow is squeezed.
+\paragraph{Trace diagnosis.} At $N = 4$ (Figure~\ref{fig:rate-trace} left) the long flow
+collapses to ${\sim}0.38$ Gbps while the four cross flows hold ${\sim}23.2$ Gbps each for the
+entire 19 ms contention window, with zero PFC and zero loss --- \emph{winner-take-all}: at every
+shared link the local single-bottleneck flow wins and the long flow is squeezed.
 
 % ============================================================================
-\section{Why Sender-Only Fixes Are Insufficient}
+\section{The Limits of Sender-Side Control}
 \label{sec:senderonly}
 % ============================================================================
 
 A natural first design instinct --- and the one our project explored exhaustively --- is to
 keep all state and computation at the sender, since HPCC's value proposition is its stateless
-switch design. We tried five sender-only correction variants behind a new \texttt{mb\_mode}
-config knob, on top of unchanged HPCC. Each is a one- or two-line change in
-\texttt{UpdateRateHp}; the \texttt{mb\_mode = 0} path is byte-identical to stock HPCC (verified).
+switch design. We evaluated six sender-only correction variants behind a new \texttt{mb\_mode}
+config knob, on top of unchanged HPCC; the \texttt{mb\_mode = 0} path is byte-identical to
+stock HPCC (verified). Five are small heuristic changes to \texttt{UpdateRateHp}; the sixth is
+the strongest design the endpoint admits --- a full sender-side mirror of the RCP recursion.
 
-\subsection{The five variants}
+\subsection{Five heuristic variants}
 
 \begin{enumerate}
 \item \textbf{$k$-aware additive increase} (\texttt{mb\_mode 1}). The flow counts congested hops
@@ -338,46 +313,81 @@ Result: $1.71\times$ at $\gamma = 20$.
 \end{tabular}
 \end{table}
 
-\subsection{The structural reason}
+\subsection{The strongest sender-side design: a virtual-RCP mirror}
+\label{sec:vrcp}
 
-Two observations explain the pattern.
+The five variants above are heuristics, and a fair objection is that they do not exhaust the
+design space. The strongest sender-side design is implied by \S\ref{sec:design} itself: RCP's
+inputs --- capacity $C$, aggregate load $y$, queue $q$ --- are all sender-visible in HPCC's INT
+record. So let the sender run the switch's recursion \emph{privately}: per hop, maintain a
+virtual fair rate $\hat R_i$ updated by the identical RCP rule from the flow's own INT samples,
+and send at $\min_i \hat R_i$ (\texttt{mb\_mode 6}; same gains, same $R_0 = C/2$, the sender's
+own base RTT as control interval --- the settings most favorable to the endpoint). If the
+obstacle were \emph{information}, this variant would match the switch.
 
-\paragraph{The $\eta$-hold equilibrium.} Once the contended links settle at the target
-utilization $\eta$, HPCC's multiplicative term $1/\max c \approx 1$, so the rate update is
-dominated by holding. Every flow holds its current rate; if the dominant flows held a high rate
-at startup, they keep it. Additive nudges (modes 1, 5) take orders of magnitude more RTTs than the flow's lifetime (our 200\,ms runs are ${\sim}10^4$ RTTs, and modes 1 and 5 never converge) to
-redistribute meaningfully because $R_{AI}$ is small compared to line rate. MD-side
-modifications (modes 3, 4) almost never fire because the multiplicative-decrease branch rarely
-activates at the hold point.
+It does not (Table~\ref{tab:vrcp}). With synchronized starts it reaches only $1.56\times$; under
+staggered arrival it lands at $1.65\times$ or $0.81\times$ --- the \emph{direction} of the
+unfairness set by arrival order --- while the identical law at the switch holds
+$1.003$--$1.008\times$ in all three scenarios. The mechanism is visible in the update itself:
+the recursion is multiplicative, so senders driven by a common observed $(y, q)$ sequence
+multiply their private estimates by (nearly) the same factor, and the \emph{ratio} between their
+estimates never contracts. A late-arriving flow initializes fresh while incumbents hold evolved
+state, and no later observation reconciles them; RTT heterogeneity alone --- the synchronized
+case --- already breaks the common trajectory.
 
-\paragraph{The information asymmetry.} Strong redistribution requires moving the rate
-\emph{multiplicatively} toward each flow's max-min fair share $C / N$. A sender knows $C$ (from
-INT) and its own rate, but not $N$ --- the link's flow count. The only $N$-free sender
-mechanism is AIMD-style additive nudging, which we have just shown is too slow.
+\begin{table}[t]
+\caption{Sender-side virtual RCP (\texttt{mb\_mode 6}) vs.\ the switch mode: same control law,
+same INT-visible inputs, different placement. $N{=}4$ parking lot; ``late'' = that side starts
+$+5$\,ms after the other.}
+\label{tab:vrcp}
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+ & synchronized & long late & crosses late \\
+\midrule
+switch (shared per-port $R$) & $1.005\times$ & $1.008\times$ & $1.003\times$ \\
+sender (private $\hat R$)    & $1.560\times$ & $1.654\times$ & $0.813\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-This is precisely why RCP~\cite{dukkipati2008rcp} and XCP~\cite{katabi2002xcp} put the
-fair-share computation in the switch. Our results are consistent with the same conclusion for the
-HPCC family: across the five representative sender-side designs we evaluated, none converges to the
-max-min allocation under the $\eta$-hold dynamics. We present this as empirical evidence, not a
-formal impossibility result --- a tight lower bound on what sender-only INT can achieve is left to
-future work.
+\subsection{The structural reason: consistency, not information}
+
+Two observations explain the pattern. \emph{First, the $\eta$-hold equilibrium:} once the
+contended links settle at target utilization $\eta$, HPCC's multiplicative term
+$1/\max c \approx 1$ and every flow holds its current rate --- whoever grabbed more at startup
+keeps it. Additive nudges (modes 1, 5) are orders of magnitude too slow relative to flow
+lifetimes (our 200\,ms runs are ${\sim}10^4$ RTTs and they never converge), and MD-side
+modifications (modes 3, 4) rarely fire at the hold point.
+
+\emph{Second --- what mode 6 isolates --- max-min requires a shared reference.} The information
+needed to compute the fair share is sender-visible; what the sender cannot obtain is
+\emph{agreement}. The max-min allocation is reached when every flow at a bottleneck adopts the
+\emph{same} rate. Private per-sender estimates, updated multiplicatively from asynchronous
+samples, preserve their initial disagreement instead of contracting it; a per-port register at
+the switch is the cheapest consistent shared reference --- every packet reads the same $R$, so a
+newcomer adopts the incumbents' rate within one RTT. This is why
+RCP~\cite{dukkipati2005ps,dukkipati2008rcp} and XCP~\cite{katabi2002xcp} place the computation
+in the network. Our contribution is the controlled demonstration that, for INT-style RDMA
+control, the \emph{placement} is what matters: six sender-side designs spanning heuristics to a
+full RCP mirror fail, while the identical law at the switch succeeds. We present this as strong
+empirical evidence, not a formal impossibility result.
 
 % ============================================================================
-\section{HPCC-FS Design}
+\section{RDMA-RCP Design}
 \label{sec:design}
 % ============================================================================
 
-The empirical and structural arguments of \S\ref{sec:senderonly} motivate a design that (a)
-make the \emph{dominant} flows yield, not just nudge the victims, and (b) place a fair-rate
+The empirical and structural arguments of \S\ref{sec:senderonly} motivate a design that (a)~makes the \emph{dominant} flows yield rather than merely nudging the victims, and (b)~places a fair-rate
 \emph{signal} at the switch, since the sender cannot recover the fair share from a load signal
-alone. We do not have the switch count flows and divide; instead it runs a standard RCP control
+alone. We do not have the switch count flows and divide; instead each port runs a standard RCP control
 law on aggregate load and queue (below) whose fixed point \emph{is} the max-min fair rate $C/N$
 --- the switch converges to the fair share without ever materializing $N$. We take the most
 minimal mechanism consistent with these constraints, packaged as an \emph{operating mode}
 selected per traffic class alongside stock HPCC on the same INT transport
 (\S\ref{sec:integration}).
 
-\paragraph{Background: RCP} The Rate Control Protocol (RCP)~\cite{dukkipati2008rcp} is a
+\paragraph{Background: RCP} The Rate Control Protocol (RCP)~\cite{dukkipati2005ps,dukkipati2006fct,dukkipati2008rcp} is a
 router-assisted congestion control in which each link advertises a \emph{single} rate $R$ to
 \emph{all} flows crossing it, holding no per-flow state. The key point is that $R$ is not an
 aggregate budget for the link; it is the rate \emph{each individual flow} should send at, such
@@ -392,7 +402,7 @@ $R \approx C/N$ --- the max-min (processor-sharing) fair share, tracked \emph{wi
 $N$}: as flows arrive or leave, $R$ self-adjusts (a lone flow's $R$ rises to $C$; a third arrival
 drops everyone to $C/3$). RCP thus supplies exactly the missing ingredient from
 \S\ref{sec:senderonly}: a fair-share signal computed where the flow count is implicitly observable
-(the link), not at the sender. HPCC-FS runs this control law once per egress port and carries its
+(the link), not at the sender. \hpccfs runs this control law once per egress port and carries its
 $R$ in the INT header; a flow's path-minimum $R$ approximates network-wide max-min fairness (within $1.2\%$ of the oracle on our benchmarks), since a
 flow bottlenecked elsewhere contributes less load here and the loop hands the slack to the rest.
 
@@ -404,7 +414,7 @@ sender reads that field from the returning ACK and adopts it. No per-flow switch
 per-hop record, no receiver changes.
 
 \begin{algorithm}[t]
-\caption{HPCC-FS switch --- per egress port $j$}
+\caption{\hpccfs switch --- per egress port $j$}
 \label{alg:switch}
 \begin{algorithmic}[1]
 \State \textbf{State} $R_j$ (fair rate), $t_j$ (last update), $B_j$ (txByte snapshot)
@@ -431,7 +441,7 @@ per-hop record, no receiver changes.
 \end{algorithm}
 
 \begin{algorithm}[t]
-\caption{HPCC-FS sender (receiver echoes the header unchanged)}
+\caption{\hpccfs sender (receiver echoes the header unchanged)}
 \label{alg:sender}
 \begin{algorithmic}[1]
 \State \textbf{on} QP-create:\; $\mathit{rate} \gets R_{\min}$ \Comment{conservative start}
@@ -444,7 +454,7 @@ per-hop record, no receiver changes.
 \end{algorithm}
 
 \paragraph{At the switch (Alg.~\ref{alg:switch}).} Each egress port keeps a single scalar fair
-rate $R_j$, refreshed once per control interval $d$ ($\approx$ one RTT) by the standard RCP rule
+rate $R_j$, refreshed once per control interval $d$ --- a fabric-wide constant set to the maximum base RTT, $21.4\,\mu$s in all our experiments --- by the standard RCP rule
 $R \leftarrow R\,(1 + (\alpha(C - y) - \beta q/d)/C)$, where $y$ is the load observed over the
 last interval and $q$ the queue backlog. The term $\alpha(C - y)$ chases spare capacity (positive
 while the link is under-utilized, pushing $R$ up) and $\beta q/d$ brakes when a standing queue
@@ -467,17 +477,12 @@ $[R_{\min}, \mathit{NICrate}]$. That single assignment is the whole sender contr
 \subsection{Startup smoothing}
 \label{sec:startup}
 
-Two cold-start details matter for clean operation. \textbf{Switch:} initialize $R = C/2$ (the
-common-case two-flow fair share), not $C$ --- otherwise the first stamped rate is line rate.
-\textbf{Sender:} initialize \texttt{qp->m\_rate} to \texttt{m\_minRate} for \texttt{cc\_mode 11},
-not the NIC line rate, so the first RTT before any ACK has returned does not blast at line
-rate. A flow obtains a path-complete fair-rate signal in a \emph{single} RTT --- unlike stock
-HPCC, whose per-link INT estimate needs multiple rounds to reflect a multi-bottleneck path --- but
-full convergence to the max-min allocation takes longer, as the per-port RCP estimate settles over
-several control intervals (Section~\ref{sec:eval}: all five flows are within $5\%$ of the fair
-share by ${\sim}0.6$\,ms, i.e.\ ${\sim}30$ RTTs at our 21\,$\mu$s base RTT, and within $1\%$ by
-${\sim}2.3$\,ms). HPCC-FS's advantage is therefore \emph{fast, path-length-independent}
-convergence, not literal one-RTT convergence.
+Two cold-start details: the switch initializes $R = C/2$ (not $C$, else the first stamp is line
+rate), and the \texttt{cc\_mode 11} sender starts at \texttt{m\_minRate} so the first RTT does
+not blast before any ACK returns. A flow sees a path-complete fair-rate signal in one RTT; full
+convergence takes several control intervals (\S\ref{sec:eval}: within $5\%$ of fair share by
+${\sim}0.6$\,ms, ${\sim}30$ RTTs at our 21\,$\mu$s base RTT; within $1\%$ by $2.3$\,ms) ---
+fast and path-length-independent, though not literally one-RTT.
 
 \subsection{Additive integration and coexistence}
 \label{sec:integration}
@@ -499,23 +504,24 @@ the stock class, \texttt{cc\_mode 12} reproduces \texttt{cc\_mode 3}'s FCTs \emp
 every flow in the FS class it reproduces \texttt{cc\_mode 11}'s $1.005\times$ penalty at zero PFC.
 
 \paragraph{Coexistence is not free (negative result).}
-On the $N{=}4$ parking lot we then placed the multi-bottleneck long flow in the FS class and the
-four cross flows in the stock class, sharing the same links. \emph{Neither class gets its fair
-share.} Rate-only FS (our default) overshoots: the long flow takes $21.6$ Gbps against a $12.5$ Gbps
-fair share and pushes the stock cross flows down to $11.1$ Gbps (penalty $0.51\times$, i.e.\ the
-starvation reverses). Re-enabling the FS window instead starves the FS flow ($6.2$ Gbps,
-$2.53\times$ --- worse than stock HPCC's own $1.96\times$). Giving the FS class its own priority
-queue does not help ($0.51\times$): HPCC drives its queue to near-zero by design, so it forfeits its
-round-robin turns to a neighbour that maintains a standing queue. The cause is the paper's own theme
-turned on its head: an RCP port infers the fair share from aggregate load, so its fixed point
-$R = C/N$ presumes that \emph{every} flow on the port obeys $R$. Flows running a different control
-law are invisible to that inference in exactly the way flow count is invisible to a sender.
+On the $N{=}4$ parking lot with the long flow in the RCP class and the cross flows in the stock
+class, \emph{neither class gets its fair share}: rate-only RCP overshoots ($21.6$ Gbps against a
+$12.5$ fair share, squeezing stock to $11.1$; penalty $0.51\times$ --- the starvation reverses),
+the windowed variant under-shoots ($6.2$ Gbps, $2.53\times$), and a separate priority queue does
+not help ($0.51\times$; HPCC keeps its queue near zero and forfeits round-robin turns). The cause
+is this paper's theme inverted: RCP's fixed point $R = C/N$ presumes every flow on the port obeys
+$R$ --- non-compliant flows are invisible to the inference exactly as flow count is invisible to
+a sender.
 
-The deployable reading is therefore narrower than ``two modes on one link'': \hpccfs needs a reserved
-share of capacity (a scheduler weight or a separate fabric), not free competition with stock HPCC.
-Bandwidth-partitioned coexistence and an RCP variant that estimates the compliant-flow share are
-future work. All variants ship with the artifact (\texttt{run\_mixed\_mode.py}); PFC is zero in every
-one.
+We then tested the obvious remedy: a weighted-DRR egress scheduler (additive
+\texttt{dwrr\_weights}; byte-deficit DRR over the non-priority queues) reserving each class its
+exact $50\%$ per-link entitlement. \emph{It changes nothing} ($0.511\times$): the scheduler
+never binds, because stock HPCC's INT still reports \emph{port-global} bytes and queue --- the
+stock class sees $u \approx 1$ from RCP traffic, holds low, and never offers its reserved share,
+which RCP then absorbs. A fair scheduler cannot help a class whose controller will not offer its
+share; coexistence requires the reservation to extend into the \emph{telemetry} --- per-class
+$C$, $y$, $q$ --- i.e.\ true slicing, or a separate fabric. All variants ship with the artifact
+(\texttt{run\_mixed\_mode.py}); PFC is zero throughout.
 
 % ============================================================================
 \section{Evaluation}
@@ -538,6 +544,22 @@ artifact,\footnote{Reproduction record and methodology:
 per-run results (554\,MB compressed) are archived at
 \url{https://1drv.ms/f/c/6052297178cce52b/IgAsSQ7gNfdhQrNejod27CpkAYQs8xZs4QtGc_KKVWZjQLs}.}
 and its verdict is that the re-port matches the original paper's central findings.
+Table~\ref{tab:metrics} defines every metric used below.
+
+\begin{table}[t]
+\caption{Metrics used in this paper.}
+\label{tab:metrics}
+\centering\small
+\begin{tabular}{ll}
+\toprule
+unfairness ratio & long-flow FCT / mean cross-flow FCT (oracle $= 1.0$) \\
+oracle-norm.\ penalty & per-flow FCT / fluid max-min oracle FCT \\
+raw long/short ratio & mean long FCT / mean short FCT (ECMP study) \\
+slowdown & FCT / same-size standalone FCT \\
+coflow JCT & max FCT over a coflow's flows \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Headline: N-sweep}
 
@@ -548,8 +570,8 @@ and its verdict is that the re-port matches the original paper's central finding
 across the entire sweep; stock and multi-rate HPCC fail at $N \le 4$ and break at $N \ge 5$
 (INT-overflow regime).}
 \Description[Bar chart of unfairness vs N for three CC schemes]{Grouped bar chart of unfairness
-ratio at N=2 through 6 for stock HPCC, multi-rate HPCC, and HPCC-FS. Stock and multi-rate bars
-are near 1.9 for N=2 to 4 then drop to 0.5 at N=5 and 6 (INT overflow region). HPCC-FS bars are
+ratio at N=2 through 6 for stock HPCC, multi-rate HPCC, and RDMA-RCP. Stock and multi-rate bars
+are near 1.9 for N=2 to 4 then drop to 0.5 at N=5 and 6 (INT overflow region). RDMA-RCP bars are
 flat near 1.0 across all N. A dashed horizontal line at 1.0 marks the max-min oracle.}
 \label{fig:nsweep}
 \end{figure}
@@ -563,6 +585,52 @@ length. HPCC-PINT, which carries one compressed utilization field, inherits HPCC
 control and so still suffers the same ${\sim}1.8\times$ ($1.77$--$1.88\times$) multi-bottleneck
 penalty --- confirming that the fix requires a fair-share signal, not merely a smaller INT
 footprint. All \hpccfs runs have zero PFC events.
+
+\subsection{The failure is endemic: deployable baselines}
+\label{sec:endemic}
+
+Is multi-bottleneck unfairness HPCC-specific? We ran every deployable RDMA scheme in our stack on
+the same benchmark, with harness parity to the original HPCC evaluation (window-based schemes keep
+their window; DCQCN, TIMELY, and DCTCP run windowless exactly as in their reference
+configurations). Table~\ref{tab:endemic}: \emph{every} scheme is unfair to the multi-bottleneck flow and worsens
+with bottleneck count --- DCQCN worst at $N{=}4$ ($2.32\times$). HPCC is the norm, not an
+outlier; only the RCP mode reaches max-min, and only HPCC and the RCP mode hold zero PFC.
+
+\begin{table}[t]
+\caption{Unfairness ratio and PFC pauses on the parking lot: every deployable scheme fails
+multi-bottleneck max-min; all worsen with $N$.}
+\label{tab:endemic}
+\centering\small
+\begin{tabular}{lrrrr}
+\toprule
+scheme & $N{=}2$ & $N{=}3$ & $N{=}4$ & PFC \\
+\midrule
+DCQCN & $1.70\times$ & $1.90\times$ & $2.32\times$ & 6--34 \\
+TIMELY & $1.83\times$ & $1.96\times$ & $2.01\times$ & 72--156 \\
+DCTCP & $1.61\times$ & $1.72\times$ & $1.78\times$ & 256--280 \\
+HPCC & $1.90\times$ & $1.92\times$ & $1.96\times$ & 0 \\
+\hpccfs & $\mathbf{1.003\times}$ & $\mathbf{1.003\times}$ & $\mathbf{1.005\times}$ & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{When max-min is the objective: allreduce-style coflow JCT}
+\label{sec:jct}
+
+The workload class that motivates multi-bottleneck fairness is collective communication: a
+training step's shard exchange or allreduce completes only when its \emph{slowest} flow
+completes, so the job completion time is the coflow's maximum FCT --- and the slowest flows are
+precisely the cross-pod, multi-bottleneck ones that stock HPCC starves. We run a 16-flow ring
+allreduce chunk-exchange over all hosts of the $k{=}4$ fat-tree (4 inter-pod, 4
+intra-pod-different-edge, 8 same-edge segments; 50 MB each; JCT $=$ max FCT), across the same
+five ECMP hash seeds. \hpccfs cuts JCT by $19.5$--$22.7\%$ (mean $21.4\%$) at \emph{every}
+seed, and makes it nearly placement-invariant ($17.9$--$18.0$ ms across seeds, versus stock's
+$22.3$--$23.3$ ms) --- equalized flows cannot be victimized by an unlucky hash. Adding eight 2
+MB background flows leaves the JCT gain intact ($+20.6\%$ mean) and, in this mix, speeds the
+background flows up ${\sim}3\times$ ($0.9$--$1.3$ ms vs $2.2$--$4.3$ ms): under winner-take-all
+dynamics whether a short flow wins or loses is a placement lottery (they lose here, they won in
+the WebSearch mix of \S\ref{sec:scope}), and max-min removes the lottery. Read as a coflow, the 8-flow ECMP workload of \S\ref{sec:eval} shows the same effect: makespan
+improves $9.8$--$26.5\%$ across seeds.
 
 \subsection{Structurally different topologies}
 
@@ -601,10 +669,10 @@ paths). We report two distinct quantities. (i) The \emph{oracle-normalized penal
 long-path slowdown divided by mean short-path slowdown, each measured against the max-min oracle
 --- which removes the effect of ECMP load placement: stock $1.34\times$, \hpccfs
 $\mathbf{1.001\times}$ (every contended flow lands at its oracle FCT). (ii) The \emph{raw}
-long/short FCT ratio, which under HPCC-FS is still ${\sim}1.32\times$ --- but this residual is
+long/short FCT ratio, which under \hpccfs is still ${\sim}1.32\times$ --- but this residual is
 \emph{not} CC unfairness: ECMP hashes some flows onto under-loaded cores so they finish early,
 inflating the raw ratio independently of the congestion controller. PFC $= 0$ for both schemes.
-The point is that, once ECMP load placement is normalized away, HPCC-FS removes the
+The point is that, once ECMP load placement is normalized away, \hpccfs removes the
 multi-bottleneck penalty; the path-min fair-rate aggregation is path-invariant, so ECMP requires
 no design changes. \emph{Hash-seed sensitivity.} Because a single deterministic run fixes one
 placement, we re-ran the workload across five ECMP hash seeds (an additive
@@ -627,8 +695,8 @@ agree within $1.6\%$. The oracle-normalized conclusion is therefore seed-robust
 within $1.0 \pm 0.012$ across all six scenarios, including the small-long worst case where
 stock reaches $3.53\times$.}
 \Description[Horizontal bar chart of penalty across six workload variants]{Horizontal bars
-comparing stock HPCC and HPCC-FS relative penalty across six asymmetric-size and staggered-start
-scenarios at N=4. Stock bars range from 1.81x to 3.53x. HPCC-FS bars are clustered near 1.0
+comparing stock HPCC and RDMA-RCP relative penalty across six asymmetric-size and staggered-start
+scenarios at N=4. Stock bars range from 1.81x to 3.53x. RDMA-RCP bars are clustered near 1.0
 across all scenarios. A dashed vertical line at 1.0 marks the max-min oracle.}
 \label{fig:robustness}
 \end{figure}
@@ -636,29 +704,39 @@ across all scenarios. A dashed vertical line at 1.0 marks the max-min oracle.}
 Across six perturbations (Figure~\ref{fig:robustness}), \hpccfs holds within $1.0 \pm 0.012$.
 The worst stock case (small multi-bottleneck flow, $3.53\times$ penalty) drops to $1.012\times$.
 
-\subsection{Ablation: rate-only is necessary}
+\emph{Start-time jitter.} Two ensembles rule out synchronization artifacts of deterministic
+simultaneous starts. Jittering all five flows' start times by $U[0,1]$\,ms (five deterministic
+seeds), stock HPCC's penalty stays $1.96$--$1.99\times$ and \hpccfs stays
+$1.008$--$1.017\times$. On the $N{=}1$ control, the pairwise spread persists at
+$1.10$--$1.39\times$ across offsets from $10\,\mu$s to $5$\,ms with its \emph{direction}
+flipping by arrival order --- the $\eta$-hold rate lottery, not a synchronization artifact ---
+while \hpccfs equalizes the pair exactly at every offset.
+
+\subsection{Ablation: windows must scale with the fair rate}
 \label{sec:ablation}
 
-\hpccfs runs rate-only in FS mode --- the per-flow window cap is disabled (\S\ref{sec:design}).
-Table~\ref{tab:window} ablates this: re-enabling the window cap in FS mode degrades the penalty to
-$1.5$--$2.5\times$, \emph{worsening with path length} (at $N=4$ it is worse than stock HPCC). The
-cause is that \texttt{var\_win} sizes the window from the NIC line rate, not the smaller multi-hop
-bottleneck path, so the long flow is window-bound below its fair rate. Disabling the cap is thus a
-necessary part of the design, not an incidental change; the switch's RCP rate already keeps queues
-bounded (zero PFC, \S\ref{sec:queue}).
+\hpccfs defaults to rate-only operation --- the per-flow window cap is disabled
+(\S\ref{sec:design}). Table~\ref{tab:window} shows why, and shows the constraint is narrower
+than ``no windows'': re-enabling HPCC's \texttt{var\_win} window degrades the penalty to
+$1.5$--$2.5\times$, worsening with path length, because that window is sized from the NIC line
+rate rather than the smaller multi-hop bottleneck path. The problem is the window's
+\emph{scale}, not windowing itself: a canonical-RCP endpoint that sizes its window from the
+adopted fair rate, $\mathit{cwnd} = R \cdot \mathrm{baseRTT}$ (the \texttt{fs\_rcp\_window}
+knob), matches rate-only fairness while bounding in-flight data per flow. Deployments wanting a
+hard in-flight cap can keep one; it must simply track $R$, not the NIC.
 
 \begin{table}[t]
-\caption{Window ablation: HPCC-FS rate-only (default) vs.\ with the per-flow window cap re-enabled.}
+\caption{Window ablation: the NIC-scaled window breaks fairness; a fair-rate-scaled canonical RCP window preserves it (all zero PFC).}
 \label{tab:window}
 \centering
 \small
-\begin{tabular}{rcc}
+\begin{tabular}{rccc}
 \toprule
-$N$ & FS rate-only (default) & FS window-on \\
+$N$ & rate-only (default) & NIC-scaled window & $cwnd = R \cdot \mathrm{RTT}$ \\
 \midrule
-2 & $\mathbf{1.003\times}$ & $1.50\times$ \\
-3 & $\mathbf{1.003\times}$ & $2.00\times$ \\
-4 & $\mathbf{1.005\times}$ & $2.49\times$ \\
+2 & $\mathbf{1.003\times}$ & $1.50\times$ & $\mathbf{1.004\times}$ \\
+3 & $\mathbf{1.003\times}$ & $2.00\times$ & $\mathbf{1.004\times}$ \\
+4 & $\mathbf{1.005\times}$ & $2.49\times$ & $\mathbf{1.006\times}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -666,17 +744,12 @@ $N$ & FS rate-only (default) & FS window-on \\
 \subsection{Parameter sensitivity}
 \label{sec:sensitivity}
 
-A reasonable concern is that HPCC-FS's RCP gains are tuned to the benchmark. They are not: we use
-the standard RCP defaults ($\alpha = 0.4$, $\beta = 0.226$) untouched. Sweeping each parameter
-\emph{one at a time} at $N = 4$ on the equal-size parking-lot (others at default), the
-penalty stays within $[1.004, 1.008]\times$ with zero PFC throughout:
-$\alpha \in [0.2, 0.6]$ ($1.004$--$1.007\times$),
-$\beta \in [0.1, 0.4]$ ($1.005\times$, flat),
-the startup fraction $R_0/C \in [0.25, 1.0]$ ($1.004$--$1.008\times$; even $R_0 = C$ is PFC-free,
-because the sender's \texttt{m\_minRate} start absorbs the first-interval burst, \S\ref{sec:design}),
-and $\mathit{minRate} \in [100, 2000]$ Mb/s ($1.005\times$, flat). Within this benchmark family the
-RCP parameters are not load-bearing; we do not claim the same insensitivity for arbitrary
-topologies, joint sweeps, or heterogeneous link speeds, which remain future work.
+We use the standard RCP defaults ($\alpha = 0.4$, $\beta = 0.226$) untouched. Sweeping each
+parameter one at a time at $N = 4$ --- $\alpha \in [0.2, 0.6]$, $\beta \in [0.1, 0.4]$, startup
+$R_0/C \in [0.25, 1.0]$, $\mathit{minRate} \in [100, 2000]$ Mb/s --- the penalty stays within
+$[1.004, 1.008]\times$ with zero PFC throughout (even $R_0 = C$: the \texttt{m\_minRate} sender
+start absorbs the first interval). Within this benchmark family the RCP parameters are not
+load-bearing; we do not claim the same for arbitrary topologies or joint sweeps.
 
 \subsection{Queueing and PFC}
 \label{sec:queue}
@@ -688,23 +761,19 @@ workload); no flow loss.
 
 \subsection{Do-no-harm}
 
-The HPCC algorithm-validation smoke configuration (\texttt{cc\_mode 3}, single-bottleneck
-incast) passes all checks: 6/6 flows complete, 0 PFC, validation artifacts byte-identical to
-pre-modification. The stock \texttt{cc\_mode 3} $N$-sweep is bit-identical to the pre-change
-baseline. The HPCC-FS additions affect the \texttt{cc\_mode 3} path only by adding new code; no
-existing function's output for existing inputs is altered.
+The stock \texttt{cc\_mode 3} smoke tests and $N$-sweep are byte-identical to the pre-change
+baseline: the \hpccfs additions (implementation name \texttt{HPCC-FS}, \texttt{cc\_mode 11})
+only add code; no existing function's output for existing inputs is altered.
 
 \subsection{HPCC's home turf: competitive FCT, lower queue}
 \label{sec:cost}
 
-On contended flows \hpccfs uses RCP-style switch-computed rates rather than HPCC's per-hop
-control, so a fair question is what this costs on \emph{single}-bottleneck workloads --- HPCC's
-home turf. We measure the validated incast benchmark (3 senders $\to$ 1 receiver over a 25 Gbps
-bottleneck; 12 flows, 100--400 KB), sweeping the sender's startup rate (short flows begin at the
-startup rate and ramp until the first fair-rate ACK returns):
+What does the RCP mode cost on \emph{single}-bottleneck workloads --- HPCC's home turf? We
+measure the validated incast benchmark (3 senders $\to$ 1 receiver over 25 Gbps; 12 flows,
+100--400 KB), sweeping the sender's startup rate:
 
 \begin{table}[t]
-\caption{HPCC's home turf (single-bottleneck incast). HPCC-FS holds far less queue than HPCC at
+\caption{HPCC's home turf (single-bottleneck incast). \hpccfs holds far less queue than HPCC at
 every startup, and a moderate startup also matches or beats HPCC's FCT. The same startup leaves
 the multi-bottleneck fairness headline unchanged ($1.003$--$1.004\times$, PFC $= 0$).}
 \label{tab:hometurf}
@@ -731,8 +800,13 @@ startup is a clean knob (queue rises again only past the point where the aggrega
 exceeds link capacity), and crucially it does \emph{not} disturb the multi-bottleneck headline:
 at 8 Gbps the parking-lot penalty stays $1.003$--$1.004\times$ ($N\!=\!2,3,4$) with robustness
 variants $1.002$--$1.009\times$, all PFC $= 0$ (a second operating point; the headline runs use the 1\,Gbps startup).
-So on the home-turf workloads we measured, \hpccfs's fairness fix comes at
-\emph{little-to-no FCT cost and a queue benefit} --- not a trade-off.
+So on the home-turf workloads we measured, \hpccfs's fairness mode comes at
+\emph{little-to-no FCT cost and a queue benefit} --- not a trade-off. Worst-case in-flight data
+is also bounded in rate-only operation: before the first fair-rate ACK a sender emits at most
+$\mathit{startup} \times \mathrm{baseRTT}$ ($1$\,Gbps $\times\ 21.4\,\mu$s
+${\approx}\,2.7$\,KB per sender; even $1000$ synchronized senders inject ${\sim}2.7$\,MB in
+the first RTT), and the $cwnd = R \cdot \mathrm{RTT}$ variant (\S\ref{sec:ablation}) restores
+a hard per-flow cap thereafter.
 
 We are careful not to overclaim: \hpccfs still lacks HPCC's per-hop, window-bounded reaction, so
 on rapidly-varying or adversarial-microburst workloads (which we did not evaluate) HPCC's
@@ -751,7 +825,7 @@ ${\sim}0.6$ ms and to within $1\%$ by ${\sim}2.3$ ms.}
 \Description[Per-flow goodput over time, two panels]{Two side-by-side line plots of per-flow
 goodput (Gbps) vs time (ms) at N=4. Left panel (stock HPCC): the long multi-bottleneck flow is
 flat near 0.4 Gbps from t=1 ms to 18 ms while four cross flows hold 23 Gbps; after t=19 ms the
-long flow takes the pipe at 23 Gbps. Right panel (HPCC-FS): all five flows converge to about
+long flow takes the pipe at 23 Gbps. Right panel (RDMA-RCP): all five flows converge to about
 12.5 Gbps within 4 ms and stay locked there for the duration of the contention. A dashed line
 at 12.5 Gbps marks max-min fair share.}
 \label{fig:rate-trace}
@@ -762,26 +836,6 @@ Stock HPCC: the long flow collapses to ${\sim}0.4$ Gbps while the four cross flo
 ${\sim}23$ Gbps each for the full 19 ms contention; \hpccfs: all five flows converge to
 ${\sim}12.5$ Gbps within ${\sim}4$ ms and stay locked at fair share.
 
-\subsection{When max-min is the objective: allreduce-style coflow JCT}
-\label{sec:jct}
-
-The workload class that motivates multi-bottleneck fairness is collective communication: a
-training step's shard exchange or allreduce completes only when its \emph{slowest} flow
-completes, so the job completion time is the coflow's maximum FCT --- and the slowest flows are
-precisely the cross-pod, multi-bottleneck ones that stock HPCC starves. We run a 16-flow ring
-allreduce chunk-exchange over all hosts of the $k{=}4$ fat-tree (4 inter-pod, 4
-intra-pod-different-edge, 8 same-edge segments; 50 MB each; JCT $=$ max FCT), across the same
-five ECMP hash seeds. \hpccfs cuts JCT by $19.5$--$22.7\%$ (mean $21.4\%$) at \emph{every}
-seed, and makes it nearly placement-invariant ($17.9$--$18.0$ ms across seeds, versus stock's
-$22.3$--$23.3$ ms) --- equalized flows cannot be victimized by an unlucky hash. Adding eight 2
-MB background flows leaves the JCT gain intact ($+20.6\%$ mean) and, in this mix, speeds the
-background flows up ${\sim}3\times$ ($0.9$--$1.3$ ms vs $2.2$--$4.3$ ms): under winner-take-all
-dynamics whether a short flow wins or loses is a placement lottery (they lose here, they won in
-the WebSearch mix of \S\ref{sec:scope}), and max-min removes the lottery. The 8-flow ECMP
-workload of \S\ref{sec:eval} shows the same job-level effect when read as a coflow: its makespan
-improves $9.8$--$26.5\%$ across seeds (\texttt{run\_ecmp\_seeds.py} runs; ring workloads in
-\texttt{run\_allreduce\_jct.py}).
-
 \subsection{Scope of the headline claim}
 \label{sec:scope}
 
@@ -789,39 +843,33 @@ The ${\approx}1.0\times$ headline is a statement about the \emph{congestion-cont
 of multi-bottleneck unfairness on contention benchmarks --- not a claim of universal FCT
 improvement on production workloads. Four first-class limits. (i)~\emph{Mixed short-flow
 workloads} do not exhibit the penalty we target: under a WebSearch distribution stock HPCC's
-oracle-normalized penalty is already $1.001\times$, \hpccfs moves to $0.581\times$, and on mean
-slowdown \hpccfs trades ${\sim}15\%$ off multi-bottleneck flows for ${\sim}45\%$ on short paths
-(a mean dominated by sub-10\,KB flows, \S\ref{sec:discussion}). Workloads whose objective is
-short-flow FCT (the Homa/pFabric regime~\cite{montazeri2018homa,alizadeh2013pfabric}) may prefer
-that subsidy; max-min is the right target when multi-bottleneck flows matter --- in particular when
-they gate a collective, where the subsidy inverts into a job-level tax (\S\ref{sec:jct}). This is a
-per-class \emph{mode-selection} question, not a global replacement. (ii)~\emph{Fabric scale}: at $k = 6, 8$
+oracle-normalized penalty is already $1.001\times$ (\hpccfs: $0.581\times$), and on mean slowdown
+\hpccfs trades ${\sim}15\%$ off multi-bottleneck flows for ${\sim}45\%$ on short paths (a mean
+dominated by sub-10\,KB flows). Short-flow-FCT
+workloads~\cite{montazeri2018homa,alizadeh2013pfabric} may prefer stock HPCC; max-min matters
+when multi-bottleneck flows gate a job (\S\ref{sec:jct}) --- a per-class mode selection, not a
+global replacement. (ii)~\emph{Fabric scale}: at $k = 6, 8$
 our scaling workload does not form persistent inter-pod contention (both schemes' penalty
 ${<}1$), so the mode is exercised, but untested, where large-fabric contention would arise; a
-saturating workload is future work. (iii)~\emph{ECMP placement}: under ECMP an operator still
-observes a raw long/short spread (${\sim}1.3\times$ at the contended placement) that comes from
-hash load placement, not congestion control --- \hpccfs removes the CC component
-(\S\ref{sec:eval}), not the placement component, which is a routing/load-balancing problem. (iv)~\emph{Coexistence}: on an \emph{unreserved}
-shared queue the two modes do not each receive their fair share (\S\ref{sec:integration}); \hpccfs
-needs a reserved bandwidth share.
+saturating workload is future work. (iii)~\emph{ECMP placement}: operators still observe a raw long/short spread
+(${\sim}1.3\times$ at the contended placement) from hash load placement; \hpccfs removes the CC
+component, not the placement component --- a routing problem. (iv)~\emph{Coexistence}: the two modes do not share a link fairly --- even under a weighted-DRR
+reservation, since both controllers still read port-global signals (\S\ref{sec:integration});
+per-class deployment needs sliced telemetry or a separate fabric.
 
 % ============================================================================
 \section{Related Work}
 \label{sec:related}
 % ============================================================================
 
-\paragraph{Datacenter transport.} A long line of datacenter congestion control trades buffering for
-latency. DCTCP~\cite{alizadeh2010dctcp} reacts to ECN-marked standing queue; DCQCN~\cite{zhu2015dcqcn}
-and TIMELY~\cite{mittal2015timely} bring rate-based control to lossless RDMA fabrics using ECN and
-delay respectively; and Swift~\cite{kumar2020swift} shows a carefully engineered delay signal scales
-to large fabrics. Receiver- and scheduling-driven designs such as Homa~\cite{montazeri2018homa} and
-pFabric~\cite{alizadeh2013pfabric} instead prioritize short flows for low FCT. HPCC~\cite{li2019hpcc}
-marked a shift toward \emph{in-network telemetry}: rather than infer congestion from a single scalar,
-the sender reads exact per-hop link load and sizes its window precisely, and
-On-Ramp~\cite{liu2021onramp} and PowerTCP~\cite{addanki2022powertcp} push the precise-signal philosophy
-further. Across this line the optimization target is overwhelmingly single-bottleneck FCT, tail latency,
-or queueing; \emph{fairness across multiple shared bottlenecks}---our focus---receives comparatively
-little attention, and we show it is exactly where HPCC's otherwise-precise control breaks.
+\paragraph{Datacenter transport.} DCTCP~\cite{alizadeh2010dctcp}, DCQCN~\cite{zhu2015dcqcn},
+TIMELY~\cite{mittal2015timely}, and Swift~\cite{kumar2020swift} trade buffering for latency via
+ECN- and delay-based control; Homa~\cite{montazeri2018homa} and pFabric~\cite{alizadeh2013pfabric}
+prioritize short flows; HPCC~\cite{li2019hpcc} drives control from per-hop INT, with
+On-Ramp~\cite{liu2021onramp} and PowerTCP~\cite{addanki2022powertcp} extending the precise-signal
+philosophy. Across this line the target is single-bottleneck FCT, tail latency, or queueing;
+multi-bottleneck fairness receives little attention --- and \S\ref{sec:endemic} shows every
+deployable member of the family fails it.
 
 \paragraph{In-network telemetry.} INT~\cite{kim2015int} lets the data plane stamp per-hop state into
 packets on programmable pipelines, and HPCC was among the first to drive congestion control directly
@@ -839,126 +887,72 @@ separate efficiency and fairness controllers; and RCP~\cite{dukkipati2008rcp} re
 fair-rate scalar per link with no per-flow state, packet-stamped, with senders taking the path minimum.
 RCP is the closest mechanism to ours: \hpccfs adopts its update rule but situates it as a \emph{minimal
 fairness signal injected into an existing INT load-signaling system} rather than a standalone protocol,
-keeping HPCC's single-rate sender and per-hop transport. \hpccfs's per-port fair-rate update and path-min aggregation \emph{are} RCP's; the differences
-from canonical RCP are at the endpoint and in the control interval, not in the fair-rate law. Our
-sender is rate-only --- it does not set the RCP window $\mathit{cwnd} = R\cdot\mathrm{RTT}$
-(\S\ref{sec:design}; re-enabling any window costs the fairness result, Table~\ref{tab:window})
---- the control interval is a fabric-wide constant rather than a measured RTT average, the update is
-event-driven on dequeue, and the port applies a startup value $R_0 = C/2$ and a hard rate floor. A
-standalone-RCP head-to-head would therefore differ chiefly in the window and the interval; we
-\emph{expect}, but do not claim, the same fairness numbers. What \hpccfs adds over deploying RCP as
-a separate protocol is packaging, not control: one field on the INT transport a datacenter already
-runs, a byte-identical stock HPCC path, and per-\texttt{cc\_mode} mode selection --- no second
-protocol stack, and no growth in the INT header. ABC~\cite{goyal2020abc} argues, for wireless
+keeping HPCC's single-rate sender and per-hop transport. \hpccfs's per-port update and path-min aggregation \emph{are} RCP's; the endpoint differs
+(rate-only by default, though the canonical window $cwnd = R\cdot\mathrm{RTT}$ performs equally,
+Table~\ref{tab:window}), the control interval is a fabric constant, updates are event-driven, and
+the port applies $R_0 = C/2$ and a rate floor. What \hpccfs adds over deploying RCP as a separate
+protocol is packaging, not control: one field on the INT transport the datacenter already runs, a
+byte-identical stock HPCC path, and per-\texttt{cc\_mode} selection --- no second protocol
+stack. ABC~\cite{goyal2020abc} argues, for wireless
 links, that switches should compute the right control signal rather than expose raw load; we apply the
 same philosophy with minimal departure from HPCC's datacenter design.
 
-\paragraph{In-switch fairness.} A parallel line enforces fairness inside the switch via scheduling or
-dropping. Fair queueing~\cite{demers1989fq} and Deficit Round Robin~\cite{shreedhar1995drr} give each
-flow its own queue, while Core-Stateless Fair Queueing~\cite{stoica1998csfq} and Approximate Fair
-Dropping~\cite{pan2003afd} approximate fair bandwidth shares \emph{without} per-flow queues---using a
-single estimated fair rate and probabilistic dropping, the same stateless-per-flow spirit as RCP and
-\hpccfs. Programmable schedulers such as PIFO~\cite{sivaraman2016pifo} and AIFO~\cite{yu2021aifo} make
-rich scheduling policies realizable at line rate. \hpccfs differs in mechanism: rather than enforcing
-fairness by per-packet queueing or dropping, it \emph{advertises} one fair rate per egress port and
-lets rate-controlled RDMA senders converge to it---one scalar of egress state, no per-flow tracking and
-no extra queues.
-
-\paragraph{Programmable-switch feasibility.} Reconfigurable match-action pipelines~\cite{bosshart2013rmt}
-and P4~\cite{bosshart2014p4} make the per-port computation \hpccfs needs---an EWMA of egress load, a
-multiply--add rate update, and stamping one header field---implementable on the same class of
-programmable switches that HPCC's INT and Bolt~\cite{arslan2023bolt} already assume.
+\paragraph{In-switch fairness.} Fair queueing~\cite{demers1989fq}, DRR~\cite{shreedhar1995drr},
+CSFQ~\cite{stoica1998csfq}, and AFD~\cite{pan2003afd} enforce fairness by per-packet queueing or
+dropping (CSFQ/AFD in the same stateless-per-flow spirit as RCP); programmable
+schedulers~\cite{sivaraman2016pifo,yu2021aifo} realize such policies at line rate. \hpccfs instead
+\emph{advertises} one fair rate per egress port and lets rate-controlled senders converge to
+it --- one scalar of egress state, no per-flow tracking, no extra queues. Match-action
+pipelines~\cite{bosshart2013rmt,bosshart2014p4} make its per-port computation (an EWMA, a
+multiply--add, one stamped field) implementable on the switches HPCC's INT already assumes.
 
 \paragraph{Closely related switch-assisted DC schemes.} Bolt~\cite{arslan2023bolt} accelerates
-HPCC's control loop with sub-RTT, per-flow switch assistance (Sub-RTT Control, Proactive Ramp-Up,
-Supply Matching), targeting tail latency and ramp-up. Its objective is orthogonal to ours: Bolt is
-not designed for, and does not claim, multi-bottleneck max-min fairness, and its feedback carries
-load/supply information rather than an explicit fair share --- so the information asymmetry of
-\S\ref{sec:senderonly} applies to its senders as well: a faster load-signal loop converges faster,
-but to the same equilibrium, since the fair share $C/N$ is still not in the signal. A head-to-head
-(which would require re-implementing Bolt's switch pipeline in our stack) would therefore measure
-reaction speed rather than the fairness mechanism this paper isolates; we leave it to future work.
-Annulus~\cite{saeed2020annulus} uses a dual-control-loop
-design for traffic aggregates mixing WAN and datacenter flows---largely orthogonal to intra-DC
-multi-bottleneck fairness within a single class.
+HPCC's loop with sub-RTT per-flow switch assistance, targeting tail latency and ramp-up ---
+orthogonal to our objective: its feedback carries load/supply, not a fair share, so the shared-
+reference argument of \S\ref{sec:senderonly} applies to its senders too; a faster load-signal
+loop converges faster to the same equilibrium. A head-to-head would measure reaction speed, not
+the placement question this paper isolates; we leave it to future work.
 
-\paragraph{Fairness foundations.} Max-min fairness and the progressive-filling characterization we use
-as our oracle are classical~\cite{bertsekas1992data}, and the parking-lot topology is a standard stress
-test for multi-bottleneck rate allocation. Our contribution is not a new fairness definition but the
-diagnosis that five representative sender-side corrections fail to realize this well-understood
-objective from sender-visible INT alone, and the demonstration that a single switch-computed fair
-rate achieves it on our benchmarks.
+\paragraph{Fairness foundations.} Max-min fairness, progressive filling, and the parking lot are
+classical~\cite{bertsekas1992data}. Our contribution is not a new fairness definition but the
+measurement: six sender-side corrections --- including a full RCP mirror --- fail to realize this
+classical objective from sender-visible INT, while one switch-computed rate achieves it.
 
 % ============================================================================
 \section{Discussion}
 \label{sec:discussion}
 % ============================================================================
 
-\paragraph{Relation to HPCC, and a hybrid path.} \hpccfs is best understood not as a tweak to
-HPCC's control law but as a demonstration of \emph{where} the multi-bottleneck fix must live: a
-fair-share signal computed at the switch, which we instantiate with RCP. On contended flows it
-therefore replaces HPCC's window-bounded, per-hop-INT control with an RCP-style rate, and inherits
-RCP's character --- fair and low-queue, but without HPCC's aggressive single-flow precision
-(\S\ref{sec:cost}). The natural way to keep both is a \emph{hybrid overlay}: run HPCC unchanged on
-every flow and use the switch's fair rate only as a per-flow \emph{ceiling},
-$\mathit{rate} = \min(\mathit{rate}_{\mathrm{HPCC}}, \mathit{fairRate})$, so dominant flows are
-capped to their fair share (and yield bandwidth that HPCC's own increase gives to the starved
-flow) while HPCC's window and reaction are preserved. The open obstacle is the window--path
-mismatch behind our rate-only choice (\S\ref{sec:design}): HPCC's window is sized for the NIC, not
-the multi-hop bottleneck path, so a victim flow may stay window-bound below fair even after the
-ceiling frees bandwidth --- the overlay likely needs a path-aware window. We leave this hybrid,
-which would retain HPCC's precision \emph{and} its fairness, to future work.
+\paragraph{Relation to HPCC, and a hybrid path.} \hpccfs demonstrates \emph{where} the
+fair-share signal must live; it inherits RCP's character --- fair, low-queue --- without HPCC's
+aggressive single-flow precision (\S\ref{sec:cost}). A natural future hybrid runs HPCC unchanged
+and applies the switch's fair rate only as a per-flow \emph{ceiling},
+$\min(\mathit{rate}_{\mathrm{HPCC}}, \mathit{fairRate})$; the open obstacle is HPCC's NIC-sized
+window, which can hold a victim below fair even after the ceiling frees bandwidth
+(\S\ref{sec:ablation} suggests a fair-rate-scaled window as the fix).
 
-\paragraph{INT hop limit and the non-monotonic flip.} The $\texttt{maxHop} = 5$ limit in the
-INT-header layout is the source of the non-monotonic regime change in stock HPCC: paths longer
-than five switches overflow the INT record and the rate-control input is corrupted. \hpccfs
-sidesteps this because its wire format carries one field independent of hop count, and our
-$N = 5, 6$ measurements (\S\ref{sec:eval}) confirm it remains at penalty ${\approx}1.0\times$
-in that regime.
+\paragraph{INT hop limit.} Stock HPCC's per-hop INT cost grows with path length and its
+reference format caps at $\texttt{maxHop} = 5$, corrupting the control input beyond four
+bottlenecks; \hpccfs's one-field format is hop-count-independent and stays at
+${\approx}1.0\times$ at $N = 5, 6$.
 
-\paragraph{Mixed-size workloads.} In a preliminary test on the parking-lot under a Web-Search
-size distribution (30 flows, 483~B to 9.6~MB), \hpccfs reduces multi-bottleneck flow mean
-slowdown by ${\sim}15\%$ but increases short-path mean slowdown by ${\sim}45\%$. This is correct
-max-min behaviour --- stock HPCC's starvation of the long flow was inflating cross-link headroom
-that short flows benefited from --- but it surfaces a workload-engineering question that max-min
-alone does not resolve. A defensible mixed-size evaluation needs per-class targets and is
-application-dependent; we leave it to follow-on work.
+\paragraph{Scaling, heterogeneity, hardware.} At $k = 6, 8$ the fabric's $(k/2)^2$ cores
+spread inter-pod flows so persistent contention does not materialize for our scaling workload
+(both schemes' penalty ${<}1$; \hpccfs adds no overhead, 0 PFC) --- a saturating workload is
+future work. Our bottlenecks are uniformly 25 Gbps; RCP handles heterogeneous speeds gracefully
+in the literature, but we have not verified it here. The path-min aggregation is path-invariant
+under ECMP (\S\ref{sec:eval}); residual FCT spread is load placement, a routing issue. In
+hardware, the per-port update is three multiplies and an add per control interval, and the
+per-packet min-aggregation is a 64-bit compare-and-write --- well within programmable-switch
+budgets.
 
-\paragraph{Scaling to larger fat-trees.} The fat-tree generator runs at $k = 6$ (45 switches, 36
-hosts) and $k = 8$ (80 switches, 64 hosts). At larger $k$ the fabric has $(k/2)^2$ cores, so
-inter-pod flows spread across uncongested core paths and persistent contention does not
-materialize for our scaling workload --- both stock and \hpccfs show penalty ${<}1$, an ECMP
-load-distribution effect. \hpccfs adds no overhead in this regime (0 PFC across all six runs).
-A workload designed to saturate larger fabrics with guaranteed inter-pod contention is open
-future work.
-
-\paragraph{Heterogeneous link speeds.} Our parking lot has uniform 25 Gbps bottlenecks. Mixed
-link speeds may interact with RCP's $\alpha(C-y)$ term in ways the symmetric case does not
-exercise. RCP itself is known to handle heterogeneity gracefully; we expect the same for
-\hpccfs but have not verified.
-
-\paragraph{Multi-path / ECMP.} \S\ref{sec:eval} shows \hpccfs works under ECMP on a $k=4$
-fat-tree with hash-based path selection --- the path-min fair-rate aggregation is itself
-path-invariant. ECMP load imbalance does produce per-flow FCT spread, but this is a routing
-issue, not a CC issue.
-
-\paragraph{Hardware feasibility.} RCP's update is a single per-port floating-point or
-fixed-point step with three multiplies and an add; it is well within the budget of programmable
-switches. The min-aggregation per packet is a 64-bit compare and conditional write.
-
-\paragraph{Limitations.} Three topology families (parking-lot, tree-fabric, $k = 4{-}8$
-fat-tree) and one in-sim baseline (HPCC-PINT); no head-to-head with hardware-assisted designs
-such as Bolt or PowerTCP --- re-implementing them in this simulator is substantial, their
-objectives are orthogonal to multi-bottleneck max-min fairness, and a standalone-RCP
-head-to-head would compare identical control laws (\S\ref{sec:related}); no
-testbed measurements; per-class coexistence needs a reserved bandwidth share, which we do not design
-here (\S\ref{sec:integration}); convergence is sub-millisecond but not one RTT (\S\ref{sec:design}); and the ECMP
-evaluation is a small controlled workload, though now swept across hash seeds
-(\S\ref{sec:eval}), not a realistic mixed-size + ECMP combination. The multi-bottleneck numbers
-come from a single (re-ported) simulator: the re-port reproduces the original paper's baseline
-comparisons end-to-end (\S\ref{sec:eval}), and the retained $N \le 4$ regime sits within the
-original 5-hop INT budget by construction, but an independent-implementation cross-check of the
-parking-lot numbers remains future work. We did, however,
+\paragraph{Limitations.} Three topology families; in-sim baselines only (DCQCN, TIMELY, DCTCP,
+multi-rate HPCC, PINT) --- no Bolt/PowerTCP re-implementation and no testbed; per-class
+coexistence needs a reserved share we do not design (\S\ref{sec:integration}); the ECMP study is
+a small controlled workload (though seed-swept), not a realistic mixed-size + ECMP combination.
+All numbers come from one (re-ported) simulator: the re-port reproduces the original paper's
+baselines end-to-end and the $N \le 4$ regime sits within the 5-hop INT budget by construction,
+but an independent-implementation cross-check remains future work. We did, however,
 verify that the result is insensitive to the RCP parameters (\S\ref{sec:sensitivity}), so the
 absence of tuning is not a hidden confound.
 
@@ -980,7 +974,8 @@ fairness with zero PFC on the same INT fabric. It achieves max-min fairness
 with penalty $1.005\times$ and zero PFC at $N = 4$ across all workloads we tested, converging
 sub-millisecond and independent of path length, while leaving the original HPCC code path unchanged.
 Sharing an unreserved link with stock HPCC, however, lets the FS class capture bandwidth
-(\S\ref{sec:integration}): the mode belongs on a reserved share, not in free competition.
+(\S\ref{sec:integration}): a scheduler reservation alone does not suffice --- the mode belongs on
+sliced telemetry or a separate fabric, not in free competition.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{paper}

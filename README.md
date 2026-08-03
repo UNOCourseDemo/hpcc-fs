@@ -1,33 +1,42 @@
-# HPCC-FS: Multi-Bottleneck Fairness for High-Precision Congestion Control
+# Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study (RDMA-RCP)
 
-A research project on **HPCC** (SIGCOMM '19) that diagnoses a max-min fairness failure on
-**multi-bottleneck** datacenter paths and offers **HPCC-FS**, a coexisting alternative operating mode
-on the same INT fabric — *one* new fair-rate field in the INT header and *one* scalar of state per
-switch port — for traffic that requires multi-bottleneck fairness with zero PFC. All of our work
-lives under `examples/hpcc/hpcc-fs/`.
+An empirical study of multi-bottleneck max-min fairness on lossless RDMA fabrics, and
+**RDMA-RCP** (implementation name `HPCC-FS`, `cc_mode 11`): an RCP service mode carried in *one*
+INT fair-rate field with *one* scalar of state per switch port, offered alongside byte-for-byte
+unchanged stock HPCC. All of our work lives under `examples/hpcc/hpcc-fs/`.
 
-**Headline.** Stock HPCC suffers a **~2× multi-bottleneck penalty** at *N* = 2–4 (up to **3.5×**
-when the multi-bottleneck flow is small/RPC-scale), and HPCC's control input is **corrupted outright
-at *N* ≥ 5** because the per-hop INT record overflows its `maxHop = 5` cap (the original HPCC wire
-format). We trace this to a structural property: a sender cannot compute its fair share `C/N` because
-the link's flow count `N` is not observable in INT — and five representative sender-only corrections
-all fail (empirical evidence, not a formal impossibility). **HPCC-FS** is offered *alongside* stock
-HPCC, not in its place: it adds an RCP-style per-port fair rate stamped path-min into one header
-field, driving the penalty to **1.005× at *N* = 4**, flat through *N* = 6, across asymmetric sizes /
-staggered starts / ECMP hash seeds, with **zero PFC** — and cutting allreduce-style coflow
-job-completion time by **~21%** at every ECMP seed. Convergence is **sub-millisecond** and
-path-length-independent (~0.6 ms to within 5% of the fair share). Stock HPCC (`cc_mode 3`) is left
-**byte-for-byte unchanged**.
+**Finding 1 — the failure is endemic.** On a parameterized parking-lot benchmark with a fluid
+max-min oracle, *every* deployable RDMA CC scheme is unfair to the multi-bottleneck flow — DCQCN
+**1.70–2.32×**, TIMELY 1.83–2.01×, DCTCP 1.61–1.78×, HPCC 1.90–1.96× at *N* = 2–4 — all growing
+with bottleneck count and robust to start-time jitter
+([`run_cc_baselines.py`](examples/hpcc/hpcc-fs/run_cc_baselines.py)). HPCC's instance is
+**winner-take-all** (the long flow collapses to ~0.4 Gbps; 3.5× for small flows), RTT-independent,
+and compounded past *N* = 4 by the original wire format's `maxHop = 5` cap.
 
-**Coexistence (negative result).** Because HPCC-FS is a mode, we tested the two modes sharing links
-(`cc_mode 12`, [`run_mixed_mode.py`](examples/hpcc/hpcc-fs/run_mixed_mode.py)). On an *unreserved*
-queue neither class gets its fair share — an RCP port's fixed point `R = C/N` presumes every flow on
-the port obeys `R`, so per-class coexistence needs a **reserved bandwidth share**, not free
-competition. We report this rather than hide it.
+**Finding 2 — consistency, not information.** Six sender-only corrections fail — including a full
+sender-side **mirror of the RCP recursion** driven by the same INT-visible inputs the switch would
+use (`mb_mode 6`, [`run_vrcp.py`](examples/hpcc/hpcc-fs/run_vrcp.py)): 1.56× even with synchronized
+starts, 1.65×/0.81× under staggered arrival (direction set by arrival order), while the identical
+law at the switch holds ≈1.0×. Max-min needs **one shared reference rate per link**; private
+multiplicative estimates never agree. Empirical evidence, not a formal impossibility.
 
-**Defensibility evidence (paper §5):** a window-cap ablation (rate-only is necessary), parameter
-sensitivity (penalty 1.004–1.008× across α, β, startup fraction, min-rate — the RCP defaults are not
-load-bearing), and an HPCC-PINT baseline (1.77–1.88× — a smaller INT footprint is *not* the fix).
+**Finding 3 — RDMA-RCP restores max-min.** Penalty **1.005× at *N* = 4** (flat through *N* = 6),
+across asymmetric sizes / staggered + jittered starts / ECMP hash seeds, **zero PFC**, operating
+rate-only *or* with a canonical RCP window (`cwnd = R·baseRTT`) — and cutting allreduce-style
+coflow JCT by **~21%** at every ECMP seed. Convergence is sub-millisecond and
+path-length-independent. Stock HPCC (`cc_mode 3`) is left **byte-for-byte unchanged**.
+
+**Deployment boundary (negative result).** The two modes do not share a link fairly — *even under
+a weighted-DRR 50/50 reservation* (`dwrr_weights`), because both controllers still read
+port-global telemetry: stock HPCC sees u≈1 from RCP traffic and never offers its reserved share
+([`run_mixed_mode.py`](examples/hpcc/hpcc-fs/run_mixed_mode.py)). Per-class coexistence needs the
+reservation to extend into the **telemetry** (per-class C, y, q — true slicing) or a separate
+fabric. We report this rather than hide it.
+
+**Defensibility evidence (paper §V):** a window ablation (the NIC-scaled window is the failure
+mode — 1.5–2.5×; a fair-rate-scaled window `cwnd = R·RTT` matches rate-only at 1.004–1.006×),
+parameter sensitivity (1.004–1.008× across α, β, startup, min-rate), and an HPCC-PINT baseline
+(1.77–1.88× — a smaller INT footprint is *not* the fix; the field must carry a fair share).
 
 > **📦 Artifact-review repository.** A self-contained, buildable snapshot of the HPCC-FS ns-3
 > simulator.
@@ -72,10 +81,10 @@ committed config snapshot.
 
 | File | What it is |
 |---|---|
-| `paper.pdf` | Compiled 11-page paper (ACM `acmart` sigconf), ready to view |
+| `paper.pdf` | Compiled 10-page paper (ACM `acmart` sigconf), ready to view |
 | `paper.tex` + `paper.bib` | LaTeX sources |
 | `paper-ipccc.pdf` + `paper-ipccc.tex` | IEEE-format submission version (IPCCC), same content |
-| `talk/ipccc2026-talk.pptx` / `.pdf` | Conference talk slides (19 slides, speaker notes on every slide) |
+| `talk/ipccc2026-talk.pptx` / `.pdf` | Conference talk slides (19 slides, speaker notes; the `.pptx` is authoritative) |
 | `figures/*.png` | All paper figures (regenerated live by `make_figures.py`) |
 
 **Build the PDF.** From `examples/hpcc/hpcc-fs/`:

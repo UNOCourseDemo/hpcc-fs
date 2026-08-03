@@ -157,6 +157,10 @@ public:
 	// above m_mixFsDport. Both classes share links and priority queue; only the control law and
 	// the INT record they use differ.
 	uint16_t m_mixFsDport = 0;
+	// cc_mode 11 + FsRcpWindow: canonical-RCP endpoint — size the per-flow
+	// window from the adopted fair rate, cwnd = R * baseRTT (review-response
+	// experiment: bounded in-flight with the same fair-rate law).
+	bool m_fsRcpWindow = false;
 	bool IsFsQp(Ptr<RdmaQueuePair> qp) const { return m_mixFsDport != 0 && qp->dport >= m_mixFsDport; }
 	void UpdateRateHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react);
 };

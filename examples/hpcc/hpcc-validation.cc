@@ -191,6 +191,7 @@ uint64_t maxRtt, maxBdp;
 uint32_t packet_payload_size;
 uint32_t has_win, global_t;
 uint32_t mix_fs_dport = 0;   // cc_mode 12: dport >= this marks the HPCC-FS traffic class
+bool fs_rcp_window = false;  // cc_mode 11: window = R*baseRTT (canonical RCP endpoint)
 bool fs_disable_window = true;  // HPCC-FS rate-only (cc_mode 11); set from cfg in main()
 
 struct Interface {
@@ -278,7 +279,7 @@ void ScheduleFlowInputs() {
 			// In mixed mode (FSMIX) only the FS class (dport >= mix_fs_dport) drops the window cap;
 			// stock-class flows keep HPCC's window exactly as in cc_mode 3.
 			(has_win
-			 && !(IntHeader::mode == IntHeader::FS && fs_disable_window)
+			 && !(IntHeader::mode == IntHeader::FS && fs_disable_window && !fs_rcp_window)
 			 && !(IntHeader::mode == IntHeader::FSMIX && fs_disable_window
 			      && mix_fs_dport != 0 && flow_input.dport >= mix_fs_dport))
 				? (global_t == 1 ? maxBdp : pairBdp[n.Get(flow_input.src)][n.Get(flow_input.dst)]) : 0,
@@ -773,6 +774,7 @@ int main(int argc, char* argv[])
 	packet_payload_size = cfg.get_packet_payload_size();
 	has_win = cfg.get_has_win();
 	mix_fs_dport = cfg.get_mix_fs_dport();
+	fs_rcp_window = cfg.get_fs_rcp_window();
 	global_t = cfg.get_global_t();
 	fs_disable_window = cfg.get_fs_disable_window();
 	qlen_dump_interval = cfg.get_qlen_dump_interval();
@@ -1031,6 +1033,7 @@ int main(int argc, char* argv[])
 			rdmaHw->SetAttribute("L2AckInterval", UintegerValue(cfg.get_l2_ack_interval()));
 			rdmaHw->SetAttribute("CcMode", UintegerValue(cc_mode));
 			rdmaHw->SetAttribute("MixFsDport", UintegerValue(cfg.get_mix_fs_dport()));
+			rdmaHw->SetAttribute("FsRcpWindow", BooleanValue(cfg.get_fs_rcp_window()));
 			rdmaHw->SetAttribute("RateDecreaseInterval", DoubleValue(cfg.get_rate_decrease_interval()));
 			rdmaHw->SetAttribute("MinRate", DataRateValue(DataRate(cfg.get_min_rate())));
 			rdmaHw->SetAttribute("Mtu", UintegerValue(packet_payload_size));
@@ -1094,6 +1097,18 @@ int main(int argc, char* argv[])
 			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
 			sw->SetAttribute("CcMode", UintegerValue(cc_mode));
 			sw->SetAttribute("MixFsDport", UintegerValue(cfg.get_mix_fs_dport()));
+			if (!cfg.get_dwrr_weights().empty()){
+				// Reserved-share coexistence: weighted DRR at every switch
+				// egress port (queue 0 stays strict priority for ACK/ctrl).
+				double w[BEgressQueue::qCnt];
+				for (uint32_t qi = 0; qi < BEgressQueue::qCnt; qi++) w[qi] = 1.0;
+				for (auto &kv : cfg.get_dwrr_weights())
+					if (kv.first < BEgressQueue::qCnt) w[kv.first] = kv.second;
+				for (uint32_t di = 1; di < sw->GetNDevices(); di++){
+					Ptr<QbbNetDevice> qdev = DynamicCast<QbbNetDevice>(sw->GetDevice(di));
+					if (qdev) qdev->GetQueue()->EnableDwrr(w);
+				}
+			}
 			sw->SetAttribute("MaxRtt", UintegerValue(maxRtt));
 			sw->SetAttribute("FsAlpha", DoubleValue(cfg.get_fs_alpha()));
 			sw->SetAttribute("FsBeta", DoubleValue(cfg.get_fs_beta()));

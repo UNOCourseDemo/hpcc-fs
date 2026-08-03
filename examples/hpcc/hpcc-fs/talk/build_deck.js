@@ -1,19 +1,20 @@
-// IPCCC 2026 talk deck for HPCC-FS — generated with pptxgenjs.
+// IPCCC 2026 talk deck for RDMA-RCP (formerly HPCC-FS) — generated with pptxgenjs.
 // Palette (semantic): navy 1E2761 dominant; ice CADCFC tint; RED C0504D = stock HPCC / problem;
-// BLUE 4F81BD = HPCC-FS / mode (matches the paper figures' series colors).
+// BLUE 4F81BD = RDMA-RCP / mode (matches the paper figures' series colors).
 const pptxgen = require("pptxgenjs");
 
 const NAVY = "1E2761", ICE = "CADCFC", RED = "C0504D", BLUE = "4F81BD";
 const INK = "1F2733", MUT = "5B6675", PAPER = "FFFFFF";
 const REDT = "F7E9E8", BLUET = "E9F0F8", ICET = "EEF3FB", GREENOK = "1A7F37";
+// Run from talk/ so relative paths (stored as image alt-text in the pptx) stay portable.
 const path = require("path");
-const FIG = path.join(__dirname, "..", "figures");
+const FIG = "../figures";
 const sh = () => ({ type: "outer", color: "000000", blur: 7, offset: 2, angle: 45, opacity: 0.14 });
 
 let p = new pptxgen();
 p.layout = "LAYOUT_16x9"; // 10 x 5.625
 p.author = "Haoyu Wang";
-p.title = "Multi-Bottleneck Fairness for High-Precision Congestion Control (HPCC-FS)";
+p.title = "Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study (RDMA-RCP)";
 
 // ---------- helpers ----------
 function titleBar(s, kicker, title, dark = false) {
@@ -45,9 +46,9 @@ function chip(s, x, y, w, txt, fg, bg) {
     s.addShape(p.shapes.LINE, { x: x0 + 0.34 + i * dx, y: y0 + 0.17, w: dx - 0.34, h: 0, line: { color: RED, width: 4 } });
   for (let i = 0; i < 5; i++)
     s.addShape(p.shapes.OVAL, { x: x0 + i * dx, y: y0, w: 0.34, h: 0.34, fill: { color: ICE } });
-  s.addText("Multi-Bottleneck Fairness for\nHigh-Precision Congestion Control", {
+  s.addText("Multi-Bottleneck Fairness on RDMA Fabrics:\nAn Empirical Study", {
     x: 0.7, y: 1.7, w: 8.6, h: 1.5, fontSize: 33, bold: true, color: PAPER, fontFace: "Cambria", align: "center" });
-  s.addText("HPCC-FS — one fair-rate field, one scalar per switch port", {
+  s.addText("RDMA-RCP — an RCP service mode over INT: one fair-rate field, one scalar per port", {
     x: 0.7, y: 3.12, w: 8.6, h: 0.45, fontSize: 17, italic: true, color: ICE, fontFace: "Calibri", align: "center" });
   s.addText([
     { text: "Haoyu Wang ¹ · Bo Sheng ¹ · Zerin Shaima Meem ² · Xiaoqian Zhang ²", options: { breakLine: true, fontSize: 14, color: PAPER } },
@@ -196,7 +197,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 7 · sender-only fixes fail
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "Negative result", "Five sender-only fixes — none gets close");
+  titleBar(s, "Negative result", "Six sender-only designs — none gets close");
   const rows = [
     [{ text: "sender-side variant (mb_mode)", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12.5 } },
      { text: "idea", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12.5 } },
@@ -214,13 +215,13 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "(mb_mode 0 stays byte-identical to stock)", options: { fontSize: 13, italic: true, color: MUT } },
     { text: " — the target is 1.0×.", options: { fontSize: 13, color: MUT } },
   ], { x: 0.6, y: 4.62, w: 8.85, h: 0.4, fontFace: "Calibri", align: "center" });
-  s.addNotes("Our first instinct — and probably yours — was to fix this at the sender, keeping HPCC's stateless-switch story intact. We built five variants spanning the design space: additive boosts, debiasing, decrease-side scaling, share-aware updates. Best case gets you 1.63; the target is 1.0. This is the paper's negative result, and it motivates everything after: why does every endpoint fix stall?");
+  s.addNotes("Our first instinct — and probably yours — was to fix this at the sender, keeping HPCC's stateless-switch story intact. We built five heuristic variants spanning the design space — best case 1.63, target 1.0 — and then the strongest possible sender design: a full mirror of the RCP recursion, run privately per hop from the same INT-visible inputs the switch would use. The mirror still fails: 1.56 even with synchronized starts, 1.65 or 0.81 under staggered arrival — the direction of unfairness set by arrival order — while the identical law at the switch holds 1.0. That is the next slide's story.");
 }
 
 // ============================================================ 8 · structural reason (dark emphasis)
 {
   const s = p.addSlide(); s.background = { color: NAVY };
-  titleBar(s, "Why", "Two structural reasons every sender-only fix stalls", true);
+  titleBar(s, "Why", "Consistency, not information: what the RCP mirror proves", true);
   const card = (x, head, lines, tint) => {
     s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 1.55, w: 4.25, h: 2.55, fill: { color: PAPER }, rectRadius: 0.1, shadow: sh() });
     s.addText(head, { x: x + 0.28, y: 1.78, w: 3.7, h: 0.4, fontSize: 16, bold: true, color: tint, fontFace: "Calibri", margin: 0 });
@@ -230,14 +231,14 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "Links settle at target utilization → HPCC’s multiplicative term ≈ 1.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
     { text: "Every flow holds whatever rate it grabbed at startup. Additive nudges need ~10⁴ RTTs to redistribute.", options: { fontSize: 12.5, color: MUT } },
   ], RED);
-  card(5.15, "2 · N is not observable", [
-    { text: "Fair share is C / N. INT tells the sender C — never N, the link’s flow count.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "Without N there is no strong multiplicative move toward fair share — only slow AIMD nudging.", options: { fontSize: 12.5, color: MUT } },
+  card(5.15, "2 · Private estimates never agree", [
+    { text: "RCP’s inputs (C, y, q) ARE in INT. A sender-side RCP mirror (mb_mode 6) still fails: 1.56× synced, 1.65×/0.81× staggered — direction set by arrival order.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
+    { text: "Multiplicative recursions on private state preserve initial disagreement. Max-min needs ONE shared reference rate.", options: { fontSize: 12.5, color: MUT } },
   ], RED);
   s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.35, w: 8.8, h: 0.85, fill: { color: BLUE }, rectRadius: 0.1, shadow: sh() });
-  s.addText("The information isn’t at the sender — so the fix can’t be either. It belongs at the link.", {
+  s.addText("A per-port register is the cheapest shared reference every flow can agree on. That is why it belongs at the switch.", {
     x: 0.85, y: 4.42, w: 8.3, h: 0.72, fontSize: 16.5, bold: true, color: PAPER, fontFace: "Cambria", align: "center", valign: "middle" });
-  s.addNotes("Two reasons, and they compose. First, at equilibrium HPCC's multiplicative machinery goes idle — everyone just holds. Second, even if you wanted a strong corrective move, the fair share is C over N, and N — the flow count — simply is not in the INT signal. The only N-free sender mechanism is additive nudging, which we just showed is hopelessly slow. Conclusion: put the fair-share computation where N is implicitly visible — the link. That's a 20-year-old idea: RCP.");
+  s.addNotes("Two reasons. First, at eta-hold, HPCC's multiplicative machinery goes idle — everyone holds what they grabbed. Second — and this is the paper's sharpest experiment — the obstacle is NOT information. RCP's inputs are all sender-visible in INT, so we ran the strongest sender design: a private per-hop RCP mirror. Same law, same inputs, same gains. It still fails, and the direction of unfairness flips with arrival order — because multiplicative updates on private state preserve initial disagreement forever. Max-min is an agreement property: every flow must adopt one shared rate. A per-port register is the cheapest consistent shared reference. That is the placement result, and it is why RCP belongs in the switch.");
 }
 
 // ============================================================ 9 · RCP in 60s
@@ -314,10 +315,10 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("A worked example with asymmetric contention. Link 1 carries three flows, so its RCP loop settles at a third of capacity. On link 2, the long flow arrives already capped at 33 — it offers less load, so R2 keeps rising until the link fills at 66.7 for the local cross flow. The packet picks up the minimum along its path. Result: exactly max-min — the long flow equalized where it's tightest, and the slack it can't use is automatically handed to c. No switch counted flows; no switch kept per-flow state.");
 }
 
-// ============================================================ 11 · HPCC-FS design
+// ============================================================ 11 · RDMA-RCP design
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "HPCC-FS", "The whole mechanism: three small pieces");
+  titleBar(s, "RDMA-RCP", "The whole mechanism: three small pieces");
   const cols = [
     ["Switch", ["one scalar fair rate per egress port", "RCP update once per control interval (≈ RTT)", "state: 3 numbers — no per-flow data"]],
     ["Wire", ["new INT mode: one 64-bit fairRate field", "8 B / packet, independent of hop count", "each hop min-aggregates; receiver echoes"]],
@@ -357,7 +358,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   });
   s.addText("HPCC-PINT (compressed INT) still shows 1.77–1.88× — a smaller footprint is not the fix; a fair-share signal is.", {
     x: 0.7, y: 4.9, w: 8.8, h: 0.42, fontSize: 12.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("The headline. Blue bars: HPCC-FS sits at 1.003 to 1.007 across the entire sweep — including N of 5 and 6 where stock HPCC's wire format breaks, because one field doesn't grow with path length. Zero PFC everywhere. And an important control: HPCC-PINT, which also carries a single compressed field but still carries *load*, stays at 1.8x — so it's not about telemetry size, it's about carrying a fair share instead of a load sample.");
+  s.addNotes("The headline — and it is not just HPCC: on the same benchmark DCQCN runs 1.7 to 2.3, TIMELY 1.8 to 2.0, DCTCP 1.6 to 1.8, all growing with N. Multi-bottleneck unfairness is endemic to deployable RDMA CC. Blue bars: RDMA-RCP sits at 1.003 to 1.007 across the entire sweep — including N of 5 and 6 where stock HPCC's wire format breaks, because one field doesn't grow with path length. Zero PFC everywhere. And an important control: HPCC-PINT, which also carries a single compressed field but still carries *load*, stays at 1.8x — so it's not about telemetry size, it's about carrying a fair share instead of a load sample.");
 }
 
 // ============================================================ 13 · generalization + robustness
@@ -365,21 +366,21 @@ function chip(s, x, y, w, txt, fg, bg) {
   const s = p.addSlide(); s.background = { color: PAPER };
   titleBar(s, "Results", "It generalizes — and holds under asymmetry");
   s.addImage({ path: `${FIG}/fig_robustness.png`, x: 0.55, y: 1.55, w: 5.7, h: 2.85 });
-  s.addText("six asymmetric-size / staggered-start variants at N = 4: HPCC-FS within 1.0 ± 0.012 (worst stock case 3.53× → 1.012×)", {
+  s.addText("six asymmetric-size / staggered-start variants at N = 4: RDMA-RCP within 1.0 ± 0.012 (worst stock case 3.53× → 1.012×); start-jitter ensembles: stock 1.96–1.99×, RDMA-RCP 1.008–1.017×", {
     x: 0.55, y: 4.5, w: 5.7, h: 0.62, fontSize: 11, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
   const rows2 = [
     [{ text: "topology", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12 } },
      { text: "stock", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12, align: "center" } },
-     { text: "HPCC-FS", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12, align: "center" } }],
+     { text: "RDMA-RCP", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12, align: "center" } }],
     ["3-tier tree fabric", { text: "1.36×", options: { align: "center", color: RED, bold: true } }, { text: "1.003×", options: { align: "center", color: BLUE, bold: true } }],
     ["k=4 ECMP fat-tree †", { text: "1.34×", options: { align: "center", color: RED, bold: true } }, { text: "1.001×", options: { align: "center", color: BLUE, bold: true } }],
     ["parking lot N=5,6", { text: "breaks", options: { align: "center", color: RED, bold: true } }, { text: "1.006–1.007×", options: { align: "center", color: BLUE, bold: true } }],
   ];
   s.addTable(rows2, { x: 6.45, y: 1.6, w: 3.1, colW: [1.5, 0.7, 0.9], fontFace: "Calibri", fontSize: 11.5,
     color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.44, valign: "middle", margin: 0.04 });
-  s.addText("† oracle-normalized (removes ECMP placement luck). Across 5 hash seeds the raw ratio is placement-dominated; HPCC-FS ≤ stock at 4 of 5 seeds (the 5th is uncontended).", {
+  s.addText("† oracle-normalized (removes ECMP placement luck). Across 5 hash seeds the raw ratio is placement-dominated; RDMA-RCP ≤ stock at 4 of 5 seeds (the 5th is uncontended).", {
     x: 6.45, y: 3.75, w: 3.1, h: 1.1, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", margin: 0 });
-  s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — HPCC-FS stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.");
+  s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — RDMA-RCP stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.");
 }
 
 // ============================================================ 13b · coflow JCT
@@ -388,7 +389,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Results", "The job is gated by its slowest flow: \u221221% JCT");
   s.addChart(p.charts.BAR, [
     { name: "stock HPCC", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [23.27, 22.44, 23.22, 22.33, 23.11] },
-    { name: "HPCC-FS", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [17.99, 17.96, 17.99, 17.97, 17.92] },
+    { name: "RDMA-RCP", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [17.99, 17.96, 17.99, 17.97, 17.92] },
   ], {
     x: 0.55, y: 1.45, w: 5.6, h: 3.3, barDir: "col", chartColors: [RED, BLUE],
     chartArea: { fill: { color: "FFFFFF" } }, catAxisLabelColor: MUT, valAxisLabelColor: MUT,
@@ -411,7 +412,7 @@ function chip(s, x, y, w, txt, fg, bg) {
       { text: t[1], options: { fontSize: 10.5, color: INK } },
     ], { x: 6.55, y: y + 0.08, w: 2.8, h: 0.86, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
-  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring allreduce across five ECMP hash seeds: HPCC-FS cuts job completion time about 21 percent at every seed, and makes it placement-invariant. And a nuance we like being honest about: in this mix the short background flows also got three times faster — under winner-take-all, whether a short flow wins or loses is a placement lottery; max-min removes the lottery.");
+  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring allreduce across five ECMP hash seeds: RDMA-RCP cuts job completion time about 21 percent at every seed, and makes it placement-invariant. And a nuance we like being honest about: in this mix the short background flows also got three times faster — under winner-take-all, whether a short flow wins or loses is a placement lottery; max-min removes the lottery.");
 }
 
 // ============================================================ 14 · defensibility
@@ -443,7 +444,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   ], { x: 6.84, y: 1.65, w: 2.4, h: 2.6, fontFace: "Calibri", margin: 0, valign: "top" });
   s.addText("Everything regenerates deterministically from the artifact — figures and tables are built from live runs.", {
     x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontSize: 12, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes HPCC-FS match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness mode is not a trade-off.");
+  s.addNotes("Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes RDMA-RCP match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness mode is not a trade-off.");
 }
 
 // ============================================================ 15 · honesty
@@ -451,7 +452,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   const s = p.addSlide(); s.background = { color: PAPER };
   titleBar(s, "Positioning", "What this is — and what it isn’t");
   const L = [
-    ["The mechanism is RCP; HPCC-FS is a mode, not a repair.", "We claim the diagnosis and the placement. HPCC-FS coexists with stock HPCC per traffic class; mixed classes sharing links are future work."],
+    ["The mechanism is RCP; RDMA-RCP is a mode, not a repair.", "We claim the measurement and the placement. Coexistence needs sliced telemetry: even a 50/50 DWRR reservation cannot help a class whose controller reads port-global signals."],
     ["Simulation-only, three topology families.", "No testbed; no head-to-head with Bolt / PowerTCP (would require re-implementing them). The simulator re-port reproduces the original HPCC baselines end-to-end."],
     ["Convergence is sub-ms, not one RTT.", "Within 5% of fair share in ~0.6 ms (~30 RTTs); path-length-independent."],
   ];
@@ -478,8 +479,8 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Conclusion", "One field, one scalar — a coexisting fairness mode", true);
   const rows = [
     ["Diagnosis", "HPCC starves multi-bottleneck flows ~2× (3.5× small flows); breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
-    ["Negative result", "Five sender-only fixes fail: at η-hold, no strong move exists without the flow count N.", ICE],
-    ["HPCC-FS", "A per-class mode alongside HPCC: 1.005×, zero PFC, −21% coflow JCT, stock path untouched.", BLUE],
+    ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror. Max-min needs one shared reference rate.", ICE],
+    ["RDMA-RCP", "A per-class mode alongside HPCC: 1.005×, zero PFC, −21% coflow JCT, stock path untouched.", BLUE],
   ];
   rows.forEach((r, i) => {
     const y = 1.55 + i * 1.0;
@@ -493,7 +494,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "github.com/UNOCourseDemo/hpcc-fs", options: { fontSize: 12.5, bold: true, color: ICE, fontFace: "Courier New" } },
   ], { x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontFace: "Calibri", align: "center" });
   s.addText("Thank you — questions?", { x: 0.6, y: 5.12, w: 8.85, h: 0.4, fontSize: 15, bold: true, color: PAPER, fontFace: "Cambria", align: "center" });
-  s.addNotes("To close: a real, robust fairness failure in the state of the art; evidence that the endpoint can't fix it because the endpoint can't see the flow count; and a deliberately minimal switch mode — one field, one scalar — that lands within about one percent of the max-min oracle with zero PFC, leaving stock HPCC byte-for-byte intact. One caveat we measured and report: on an unreserved shared queue the two modes do not each get a fair share, so HPCC-FS needs a reserved bandwidth share. Everything is in the artifact, including a full reproduction of the original HPCC baselines. Happy to take questions.");
+  s.addNotes("To close: a real, robust fairness failure in the state of the art; evidence that the endpoint can't fix it because the endpoint can't see the flow count; and a deliberately minimal switch mode — one field, one scalar — that lands within about one percent of the max-min oracle with zero PFC, leaving stock HPCC byte-for-byte intact. One caveat we measured and report: on an unreserved shared queue the two modes do not each get a fair share, and even a weighted-DRR reservation cannot fix it — both controllers still read port-global telemetry. Coexistence needs sliced signals or a separate fabric. Everything is in the artifact, including a full reproduction of the original HPCC baselines. Happy to take questions.");
 }
 
 // ============================================================ 17 · BACKUP: reproduction
@@ -535,10 +536,10 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addText([
     { text: "Why stock ‘improves’ at N ≥ 5", options: { bold: true, fontSize: 14, color: RED, breakLine: true, paraSpaceAfter: 6 } },
     { text: "The INT header holds maxHop = 5 per-hop records. Longer paths overflow the record; the utilization estimate is computed over the wrong hops.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "The 0.51× ‘advantage’ is corrupted control input, not fairness. HPCC-FS is immune: one field, any path length.", options: { fontSize: 12, color: MUT } },
+    { text: "The 0.51× ‘advantage’ is corrupted control input, not fairness. RDMA-RCP is immune: one field, any path length.", options: { fontSize: 12, color: MUT } },
   ], { x: 5.41, y: 1.72, w: 3.8, h: 2.9, fontFace: "Calibri", margin: 0, valign: "top" });
   s.addNotes("Two common questions. Mixed sizes: yes, short flows lose some of the headroom they were borrowing from the starved long flow — that's what fairness means; policy beyond max-min is future work. And the odd N>=5 numbers for stock HPCC are an artifact: the INT record physically overflows at 5 hops, so the controller is reading garbage — that's a bug surface our single-field format simply doesn't have.");
 }
 
-p.writeFile({ fileName: path.join(__dirname, "ipccc2026-talk.pptx") })
+p.writeFile({ fileName: "ipccc2026-talk.pptx" })
   .then(() => console.log("deck written"));

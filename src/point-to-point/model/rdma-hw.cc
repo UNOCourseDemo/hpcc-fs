@@ -30,6 +30,11 @@ TypeId RdmaHw::GetTypeId (void)
 				UintegerValue(1000),
 				MakeUintegerAccessor(&RdmaHw::m_mtu),
 				MakeUintegerChecker<uint32_t>())
+		.AddAttribute ("FsRcpWindow",
+				"cc_mode 11: size the QP window as R*baseRTT (canonical RCP endpoint); default off = rate-only",
+				BooleanValue(false),
+				MakeBooleanAccessor(&RdmaHw::m_fsRcpWindow),
+				MakeBooleanChecker())
 		.AddAttribute ("MixFsDport",
 				"cc_mode 12: QPs with dport >= this value belong to the HPCC-FS class (0 = disabled)",
 				UintegerValue(0),
@@ -936,6 +941,57 @@ void RdmaHw::UpdateRateHp(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 		}
 		#endif
 	}else {
+		if (m_mbMode == 6){
+			// ── Sender-side virtual RCP (mb_mode 6; review-response experiment) ──
+			// Mirror the switch's per-port RCP recursion (cc_mode 11) at the
+			// endpoint, per hop, driven only by sender-visible INT samples
+			// (C = lineRate, y = ΔtxBytes/Δt over the control interval,
+			// q = qlen), adopting the path minimum. Same gains (α=0.4,
+			// β=0.226), control interval (m_maxRtt), init (C/2) and clamps as
+			// the switch. Purpose: test whether the fair share can be
+			// reconstructed at the sender from the SAME information the
+			// switch uses — i.e., whether the obstacle is information or
+			// consistency of the shared reference.
+			IntHeader &ih6 = ch.ack.ih;
+			NS_ASSERT(ih6.nhop <= IntHeader::maxHop);
+			uint64_t now6 = Simulator::Now().GetTimeStep();
+			double minR6 = -1;
+			for (uint32_t i = 0; i < ih6.nhop; i++){
+				double C6 = (double)ih6.hop[i].GetLineRate();
+				if (qp->hp.vR[i] <= 0){
+					qp->hp.vR[i] = C6 * 0.5;   // switch parity: R0 = C/2
+					qp->hp.vLastTs[i] = now6;
+					qp->hp.vSnap[i] = ih6.hop[i];
+				}else if (now6 - qp->hp.vLastTs[i] >= qp->m_baseRtt){
+					uint64_t tau6 = ih6.hop[i].GetTimeDelta(qp->hp.vSnap[i]);
+					if (tau6 > 0){
+						double y6 = ih6.hop[i].GetBytesDelta(qp->hp.vSnap[i]) * 8.0 / (tau6 * 1e-9);
+						double q8 = (double)ih6.hop[i].GetQlen() * 8.0;
+						double ds6 = qp->m_baseRtt * 1e-9; // sender's own base RTT as control interval/d (most favorable to the sender variant)
+						double ratio6 = (0.4 * (C6 - y6) - 0.226 * q8 / ds6) / C6;
+						double Rn6 = qp->hp.vR[i] * (1.0 + ratio6);
+						if (Rn6 < 1e6) Rn6 = 1e6;
+						if (Rn6 > C6) Rn6 = C6;
+						qp->hp.vR[i] = Rn6;
+					}
+					qp->hp.vLastTs[i] = now6;
+					qp->hp.vSnap[i] = ih6.hop[i];
+				}
+				if (minR6 < 0 || qp->hp.vR[i] < minR6)
+					minR6 = qp->hp.vR[i];
+				qp->hp.hop[i] = ih6.hop[i];   // keep baseline fresh
+			}
+			if (minR6 > 0){
+				DataRate nr6((uint64_t)minR6);
+				if (nr6 < m_minRate) nr6 = m_minRate;
+				if (nr6 > qp->m_max_rate) nr6 = qp->m_max_rate;
+				qp->hp.m_curRate = nr6;
+				ChangeRate(qp, nr6);
+			}
+			if (!fast_react)
+				qp->hp.m_lastUpdateSeq = next_seq;
+			return;
+		}
 		// ── Subsequent RTTs: compute rate from INT deltas ────────────────
 		IntHeader &ih = ch.ack.ih;
 		if (ih.nhop <= IntHeader::maxHop){
@@ -1356,6 +1412,12 @@ void RdmaHw::HandleAckFs(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch)
 	if (newrate > qp->m_max_rate)
 		newrate = qp->m_max_rate;
 	qp->hp.m_curRate = newrate;
+	if (m_fsRcpWindow){
+		// canonical RCP: cwnd = R * baseRTT (bytes); floor at one MTU
+		uint64_t w = (uint64_t)(newrate.GetBitRate() * 1e-9 * qp->m_baseRtt / 8.0);
+		if (w < m_mtu) w = m_mtu;
+		qp->m_win = (uint32_t)w;
+	}
 	ChangeRate(qp, newrate);
 }
 

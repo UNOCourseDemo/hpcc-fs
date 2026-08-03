@@ -58,6 +58,11 @@ public:
 			DataRate Rc;
 			uint32_t incStage;
 		}hopState[IntHeader::maxHop];
+		// mb_mode 6 (sender-side virtual RCP; review-response experiment):
+		// per-hop virtual fair-rate state driven only by sender-visible INT.
+		double vR[IntHeader::maxHop];        // virtual fair rate (bits/s); 0 = uninitialised
+		uint64_t vLastTs[IntHeader::maxHop]; // ns of last virtual-RCP update
+		IntHop vSnap[IntHeader::maxHop];     // INT snapshot at last virtual update
 	} hp;
 	struct{
 		uint32_t m_lastUpdateSeq;

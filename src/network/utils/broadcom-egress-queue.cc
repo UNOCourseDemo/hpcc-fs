@@ -58,6 +58,9 @@ namespace ns3 {
 		NS_LOG_FUNCTION_NOARGS();
 		m_bytesInQueueTotal = 0;
 		m_rrlast = 0;
+		m_dwrrEnable = false;
+		m_dwrrCur = 1;
+		for (uint32_t i = 0; i < qCnt; i++){ m_dwrrW[i] = 1.0; m_dwrrDeficit[i] = 0; }
 		for (uint32_t i = 0; i < fCnt; i++)
 		{
 			m_bytesInQueue[i] = 0;
@@ -88,6 +91,11 @@ namespace ns3 {
 		return true;
 	}
 
+	void BEgressQueue::EnableDwrr(const double weights[qCnt]){
+		m_dwrrEnable = true;
+		for (uint32_t i = 0; i < qCnt; i++){ m_dwrrW[i] = weights[i]; m_dwrrDeficit[i] = 0; }
+	}
+
 	Ptr<Packet>
 		BEgressQueue::DoDequeueRR(bool paused[]) //this is for switch only
 	{
@@ -105,6 +113,35 @@ namespace ns3 {
 		{
 			found = true;
 			qIndex = 0;
+		}
+		else if (m_dwrrEnable)
+		{
+			// ── Weighted DRR over queues 1..qCnt-1 (q0 stays strict-priority) ──
+			// Classic deficit round robin, one packet per call: serve the
+			// current queue while its byte deficit covers the head packet;
+			// otherwise advance, replenishing the next queue's deficit by
+			// quantum x weight. Empty queues get their deficit reset so idle
+			// classes cannot hoard credit.
+			const int64_t QUANTUM = 2048; // ~1.5 MTU per round, scaled by weight
+			for (uint32_t tries = 0; tries < 16 * qCnt && !found; tries++){ // ample rounds even for small weights
+				uint32_t q = m_dwrrCur;
+				bool has = (!paused[q]) && (m_queues[q]->GetNPackets() > 0);
+				if (has){
+					int64_t psize = (int64_t)m_queues[q]->Peek()->GetSize();
+					if (m_dwrrDeficit[q] >= psize){
+						m_dwrrDeficit[q] -= psize;
+						found = true; qIndex = q;
+						break;
+					}
+				} else {
+					m_dwrrDeficit[q] = 0; // classic DRR: no credit while idle
+				}
+				// advance pointer and replenish the next queue
+				m_dwrrCur = m_dwrrCur + 1;
+				if (m_dwrrCur >= qCnt) m_dwrrCur = 1;
+				m_dwrrDeficit[m_dwrrCur] += (int64_t)(QUANTUM * m_dwrrW[m_dwrrCur]);
+			}
+			if (!found) { NS_LOG_LOGIC("Nothing can be sent"); return 0; }
 		}
 		else
 		{

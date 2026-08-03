@@ -21,6 +21,9 @@ TypeId RdmaQueuePair::GetTypeId (void)
 }
 
 RdmaQueuePair::RdmaQueuePair(uint16_t pg, Ipv4Address _sip, Ipv4Address _dip, uint16_t _sport, uint16_t _dport){
+	for (uint32_t i = 0; i < IntHeader::maxHop; i++){
+		hp.vR[i] = 0; hp.vLastTs[i] = 0; hp.vSnap[i] = {0};
+	}
 	startTime = Simulator::Now();
 	sip = _sip;
 	dip = _dip;

@@ -39,6 +39,10 @@ namespace ns3 {
 		virtual ~BEgressQueue();
 		bool Enqueue(Ptr<Packet> p, uint32_t qIndex);
 		Ptr<Packet> DequeueRR(bool paused[]);
+		// Weighted DRR across the non-priority queues (review-response
+		// experiment: reserved-share coexistence). Disabled by default; when
+		// disabled the stock RR path is byte-identical.
+		void EnableDwrr(const double weights[qCnt]);
 		uint32_t GetNBytes(uint32_t qIndex) const;
 		uint32_t GetNBytesTotal() const;
 		uint32_t GetLastQueue();
@@ -58,6 +62,10 @@ namespace ns3 {
 		uint32_t m_bytesInQueue[fCnt];
 		uint32_t m_bytesInQueueTotal;
 		uint32_t m_rrlast;
+		bool m_dwrrEnable;              // default false = stock RR
+		double m_dwrrW[qCnt];           // per-queue weight (used when enabled)
+		int64_t m_dwrrDeficit[qCnt];    // byte deficit counters
+		uint32_t m_dwrrCur;             // current DRR queue pointer
 		uint32_t m_qlast;
 		std::vector<Ptr<OldQueue> > m_queues; // uc queues
 	};
