@@ -64,9 +64,9 @@
     series, yet deployable RDMA congestion control is evaluated almost exclusively on
     single-bottleneck benchmarks. We present an empirical study of multi-bottleneck fairness on
     lossless RDMA fabrics. On a parameterized parking-lot benchmark with a fluid max-min oracle,
-    <em>every</em> deployable scheme we test is unfair to the multi-bottleneck flow — DCQCN
-    1.7–2.3×, TIMELY 1.8–2.0×, DCTCP 1.6–1.8×, HPCC 1.9–2.0× — growing with bottleneck count and
-    robust to start-time jitter. For HPCC we localize the mechanism: a near-winner-take-all
+    <em>every</em> scheme we evaluate is unfair to the multi-bottleneck flow — DCQCN
+    1.7–2.3×, TIMELY 1.8–2.0×, DCTCP 1.6–1.8×, HPCC 1.9–2.0×, PowerTCP (NSDI'22) 1.8–1.9× —
+    growing with bottleneck count and robust to start-time jitter. For HPCC we localize the mechanism: a near-winner-take-all
     equilibrium in which the multi-bottleneck flow collapses to ~0.4 Gbps. Six sender-only
     corrections fail — including a sender-side mirror of RCP driven by the same INT signals:
     private, independently maintained copies of an explicit-rate recursion preserve
