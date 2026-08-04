@@ -238,7 +238,7 @@ def fig_rate_trace():
     f_flows, f_t = parse_trace(fs_tr, bin_ms=0.5)
     long_key = (5, 6)  # long flow at N=4
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.4), sharey=True)
-    _plot_trace(axes[0], s_flows, s_t, long_key, "Stock HPCC: winner-take-all collapse")
+    _plot_trace(axes[0], s_flows, s_t, long_key, "Stock HPCC: near-winner-take-all collapse")
     _plot_trace(axes[1], f_flows, f_t, long_key, "RDMA-RCP: within 5% of fair share in ~0.6 ms")
     fig.tight_layout()
     out = os.path.join(FIG_DIR, "fig_rate_trace.png")

@@ -480,7 +480,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   const rows = [
     ["Diagnosis", "HPCC starves multi-bottleneck flows ~2× (3.5× small flows); breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
     ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror. Per-flow FQ equalizes only what senders offer: 1.97× windowed, equal-but-idle windowless.", ICE],
-    ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle (hetero cases), zero PFC, −18–23% coflow JCT, PFC-free to 128-way incast.", BLUE],
+    ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle (hetero cases), zero PFC, −18–23% coflow JCT. High fan-in stays on stock HPCC.", BLUE],
   ];
   rows.forEach((r, i) => {
     const y = 1.55 + i * 1.0;

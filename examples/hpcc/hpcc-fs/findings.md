@@ -655,3 +655,25 @@ sender floor; the fabric idles at ~7% utilization); fixed maxBDP window 1.517×.
 allocation. The discriminator is the absolute oracle-relative FCT metric: 13.6× (FQ +
 windowless) vs 1.06× (shared register). The corrected claim: fair scheduling enforces
 equality; the allocation additionally needs a rate signal.
+
+## F15 — Round-5: fan-in truth, calibrated oracle, HPCC parameter sweep (2026-08-04)
+
+**High fan-in is a standing limitation, not a convergence cost.** Fan-in × flow-size matrix
+(`run_round5.py`): at S=64 lifetime utilization (serialization bound / FCT) is 0.47 at 200 KB
+and FALLS to 0.25 at 50 MB (stock HPCC: 0.92 at every size, with 64 pauses/36.5 ms). The port
+oscillates between multiplicative overshoot and the floor rail; a 50 Mb/s floor makes it worse
+(0.26 at S=128). The decoupled floor moves, not removes, the feasibility bound
+(N ≤ C/R_floor = 250 at 100 Mb/s; at S=256 senders pin at the floor). No flow size makes S=64
+competitive with stock HPCC — fan-in-heavy services belong on the stock side of the slice.
+
+**The 5–13% oracle excess is wire accounting, not convergence.** The fluid oracle is a
+bandwidth-allocation lower bound (payload bits only). A solo, uncontended calibration flow
+completes 5.8% above it on wire/protocol overhead alone — so the heterogeneous matrix's
+P ∈ [1.05, 1.13] carries ≈0 measured convergence outside churn.
+
+**HPCC's unfairness is not a tuning artifact.** Sweeping η ∈ {0.90, 0.95, 0.98}, rate_ai up to
+25× (1 Gb/s), and min_rate at N=4 leaves the ratio at 1.74–1.97× (largest AI best), PFC 0 —
+additive recovery is directionally right but orders too slow.
+
+**Per-QP fairness is exploitable, measured.** A job opening two QPs obtains exactly 2.00× a
+one-QP job's bandwidth on a shared bottleneck.
