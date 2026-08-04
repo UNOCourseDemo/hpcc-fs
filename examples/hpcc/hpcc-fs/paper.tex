@@ -334,11 +334,10 @@ sits between ($1.52\times$). Scheduling can enforce
 \emph{equality}; the max-min \emph{allocation} --- equal shares at full utilization --- also
 requires a signal telling each sender how much to offer, and the absolute oracle-relative metric
 separates the outcomes ($13.6\times$ vs $1.06\times$). Per-flow queues also mean per-flow
-state at every port; the register needs three words. Our claim is thus scoped: for private reconstructions of
-an explicit fair rate, placement of the state is decisive --- six sender-side designs fail
-while the identical law at the switch succeeds. It is not a formal impossibility for every
-endpoint law: contractive designs (AIMD-style convergence toward equal windows) escape the
-history argument in principle, though the AIMD-flavored schemes we measure (DCQCN, DCTCP)
+state at every port; the register needs three words. The claim is scoped: for private reconstructions of an
+explicit fair rate, state placement is decisive --- six sender designs fail, the identical
+law at the switch succeeds. Not a formal impossibility: contractive AIMD-style designs escape
+the history argument in principle, though the AIMD-flavored schemes measured (DCQCN, DCTCP)
 still show $1.6$--$2.3\times$ (\S\ref{sec:endemic}).
 
 % ============================================================================
@@ -570,9 +569,11 @@ Collective communication motivates multi-bottleneck fairness: a step completes o
 \emph{slowest} flow completes (JCT $=$ max FCT), and the slowest flows are precisely the
 cross-pod, multi-bottleneck ones stock HPCC starves. We run a 16-flow ring coflow --- one
 communication phase of a ring allreduce (50 MB per host to its ring successor; 4 inter-pod, 4
-intra-pod, 8 same-edge) over all hosts of the $k{=}4$ fat-tree, across five ECMP seeds. A full allreduce chains $2(N{-}1)$ such phases;
-if later phases see similar contention and no compute overlap, their \emph{absolute} savings
-accumulate --- we do not simulate the multi-phase collective. \hpccfs cuts JCT by $19.5$--$22.7\%$ (mean $21.4\%$) at \emph{every}
+intra-pod, 8 same-edge) over all hosts of the $k{=}4$ fat-tree, across five ECMP seeds. A full allreduce chains $2(N{-}1)$ such phases. Chaining four
+barrier-synchronized $3.125$ MB phases (each starting at the prior phase's measured
+completion, controller state carried) gives $21.6\%$ cumulative vs $22.1\%$ single-phase ---
+savings accumulate, \hpccfs's phase JCTs stable at $1.19$ ms (\texttt{run\_round7.py});
+compute overlap unmodeled. \hpccfs cuts JCT by $19.5$--$22.7\%$ (mean $21.4\%$) at \emph{every}
 seed, and makes it nearly placement-invariant ($17.9$--$18.0$ ms across seeds, vs.\ stock's
 $22.3$--$23.3$). Eight added 2 MB background flows leave the gain intact ($+20.6\%$) and themselves speed up
 ${\sim}3\times$ ($0.9$--$1.3$ vs $2.2$--$4.3$ ms) --- a short flow's fate under
@@ -672,11 +673,9 @@ $5$--$13\%$ of its own oracle FCT --- the wire calibration alone is $5.8\%$, so 
 measured convergence residual is ${\approx}0$ outside churn ($1.13$ worst case). Mean
 bottleneck utilization is \emph{higher} than stock throughout ($0.65$--$0.78$ vs
 $0.51$--$0.70$). PFC $= 0$ everywhere; $4$--$8\times$ RTT spreads applied to the mode itself
-leave the ratio at $1.003$--$1.008\times$. Jointly stressing the mode --- churn plus a
-$4\times$ RTT spread plus $d$ misconfigured $4\times$ too small, at once --- leaves the ratio
-at $1.000\times$ while the absolute $P_i$ rise to $1.21$--$1.39$: the compound stress costs
-uniform slowdown, which the absolute metric exposes and the ratio alone would hide
-(\texttt{run\_round3.py}). (INT admits only rates $\{25,50,100,200,400\}$ Gbps; heterogeneity stays within that
+leave the ratio at $1.003$--$1.008\times$. Joint stress (churn + $4\times$ RTT spread + $d/4$ at once) leaves the ratio at
+$1.000\times$ while absolute $P_i$ rise to $1.21$--$1.39$ --- uniform slowdown the absolute
+metric exposes and the ratio would hide (\texttt{run\_round3.py}). (INT admits only rates $\{25,50,100,200,400\}$ Gbps; heterogeneity stays within that
 set.)
 
 \begin{table}[t]
@@ -767,8 +766,8 @@ pauses, $36.5$ ms paused) --- the port oscillates between multiplicative oversho
 floor rail, and a lower floor deepens the collapse ($0.26$ at $S{=}128$, $50$ Mbps floor).
 The decoupled floor also \emph{moves} rather than removes the bound: $S \le
 C/R_{\mathrm{floor}} = 250$ at $100$ Mbps; at $S{=}256$ senders pin at the floor (util $0.99$
-only because floor ${\approx}$ fair share); beyond, structural overload. A receiver-side rate trace confirms the oscillation directly: aggregate goodput
-swings $3$--$25$ Gbps with $91\%$ of bins below $C/2$ (\texttt{run\_round6.py}). The damping
+only because floor ${\approx}$ fair share); beyond, structural overload. A receiver-side rate trace confirms the oscillation: goodput swings $3$--$25$ Gbps, $91\%$
+of bins below $C/2$ (\texttt{run\_round6.py}). The damping
 knob exists: interval $\times 2$ (\texttt{fs\_d\_scale}) restores $0.84$--$0.88$ at
 $S{=}64$ (both sizes, PFC-free); $\times 4$ reaches $0.87$--$0.94$ (44 pauses at $S{=}64$,
 none at $S{=}128$)
@@ -836,6 +835,10 @@ oracle-normalized penalty is already $1.001\times$ (\hpccfs: $0.581\times$ --- s
 max-min share: policy deviation, not superiority), and on mean slowdown \hpccfs trades ${\sim}15\%$ off multi-bottleneck flows for ${\sim}45\%$
 on short paths. Short-flow-FCT workloads~\cite{montazeri2018homa,alizadeh2013pfabric} may
 prefer stock HPCC; max-min matters when multi-bottleneck flows gate a job (\S\ref{sec:jct}).
+A composite training-like mix run entirely in one mode (ring coflow + 15-to-1 parameter
+incast + 64 KB RPCs; \texttt{run\_round7.py}): the job-gating coflow improves $9\%$;
+non-gating short classes stay sub-millisecond but slower ($0.92$/$0.25$ vs $0.64$/$0.05$ ms;
+15 transient pauses). The mode fits services gated by the collective.
 Per-service selection needs per-class link or telemetry isolation (\S\ref{sec:integration}:
 an unsliced port serves neither class); the deployment unit is a fabric or slice dedicated to
 max-min traffic, not a global replacement.

@@ -609,3 +609,16 @@ floor — multiplicative growth truncates to zero below ~2.5 Mbps, so the fan-in
 the sender floor (0.27, exactly 64 x 100 Mb/s / 25 G). The same 32-bit register in **Kbps**
 units removes the stall. Register units, not arithmetic width, were the binding co-design
 choice.
+
+## F17 — Multi-phase collective + composite service (2026-08-04)
+
+**Chained phases: savings accumulate, measured.** Four barrier-synchronized 3.125 MB ring
+phases, each starting at the prior phase's measured completion with controller state carried
+(`run_round7.py`): 21.6% cumulative gain vs 22.1% single-phase. RDMA-RCP's per-phase JCTs are
+dead-stable (1.19/1.19/1.19/1.18 ms — warm register), stock HPCC's vary (1.46–1.55 ms — its
+startup lottery redraws each phase). PFC 0.
+
+**Composite training-like service, one mode end-to-end.** Ring coflow + 15-to-1 parameter
+incast + 32 x 64 KB RPCs on the k=4 fat-tree: coflow JCT 9.25 vs 10.18 ms (−9.1%); incast
+0.92 vs 0.64 ms; RPCs 0.25 vs 0.05 ms; 15 transient pauses. The mode fits services gated by
+the collective; the short-flow tax is real but stays sub-millisecond.
