@@ -144,6 +144,7 @@ def main():
 
     # Stats
     n_long = sum(1 for p in pairs if p == PARKING_TOPO_HOSTS_LONG)
+    os.makedirs(os.path.join(HERE, "output", args.name), exist_ok=True)
     print(f"generated {args.name}: n_flows={args.n_flows} long_flows={n_long} "
           f"cc_mode={args.cc_mode} sizes range=[{min(sizes)},{max(sizes)}] median={sorted(sizes)[len(sizes)//2]}")
 

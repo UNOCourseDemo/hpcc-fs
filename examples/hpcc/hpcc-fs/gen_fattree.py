@@ -165,6 +165,7 @@ def build(name, k=4, cc_mode=3, flow_size=50_000_000, stop=0.2, enable_trace=0):
     os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
     with open(cfg_path, "w") as f:
         f.write(cfg)
+    os.makedirs(os.path.join(HERE, "output", name), exist_ok=True)
     print(f"generated {name}: k={k} nodes={n_nodes} switches={n_switch} links={len(links)} "
           f"flows={len(flow_specs)} cc_mode={cc_mode}")
 

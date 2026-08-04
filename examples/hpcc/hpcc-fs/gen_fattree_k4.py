@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a standard k=4 fat-tree topology for HPCC-FS fat-tree evaluation.
+"""Generate a standard k=4 fat-tree topology for idea-a fat-tree evaluation.
 
 Structure (canonical):
   4 cores, 4 pods. Each pod has 2 edge + 2 agg switches; each edge connects to 2 hosts.
@@ -171,6 +171,7 @@ def build(name, cc_mode=3, flow_size=50_000_000, stop=0.2, enable_trace=0):
     os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
     with open(cfg_path, "w") as f:
         f.write(cfg)
+    os.makedirs(os.path.join(HERE, "output", name), exist_ok=True)
     print(f"generated {name}: nodes={n_nodes} switches={n_switch} links={len(links)} "
           f"flows={len(flow_specs)} cc_mode={cc_mode} -> configs/hpcc_{name}.yml")
 

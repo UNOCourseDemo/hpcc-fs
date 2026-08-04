@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a 3-tier "tree fabric" topology for HPCC-FS.
+"""Generate a 3-tier "tree fabric" topology for idea-a.
 
 Structurally different from the parking-lot (linear chain): a 3-tier tree with a single core
 switch, 2 aggregation switches under it, 2 edge switches under each agg, and 2 hosts per edge.
@@ -155,6 +155,7 @@ def build(name, cc_mode=3, flow_size=50_000_000, stop=0.2, bn_delay="0.002ms",
     os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
     with open(cfg_path, "w") as f:
         f.write(cfg)
+    os.makedirs(os.path.join(HERE, "output", name), exist_ok=True)
     print(f"generated {name}: nodes={n_nodes} switches={n_switch} links={len(links)} "
           f"flows={len(flow_specs)} cc_mode={cc_mode} -> configs/hpcc_{name}.yml")
 
