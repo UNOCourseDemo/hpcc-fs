@@ -133,9 +133,9 @@
     <pre style="background:#eef1f6;padding:14px;border-radius:8px;overflow:auto;font-size:.85rem"><code># build the optimized binary
 bash examples/hpcc/algorithm-validation/run.sh --optimized --build-only
 
-# generate a parking-lot config, run HPCC-FS (cc_mode 11), and check fairness
-python examples/hpcc/hpcc-fs/gen_parking_lot.py --n 4 --cc-mode 11
-# expect: UNFAIRNESS ... = 1.005x,  PFC = 0</code></pre>
+# generate the N=4 parking lot, run RDMA-RCP (cc_mode 11), and check fairness
+python3 examples/hpcc/hpcc-fs/quickstart.py
+# prints: UNFAIRNESS (long / mean-cross FCT) = 1.005x   PFC = 0</code></pre>
     <p>Full instructions, the claims→experiments map, and the engine-change table are in the
     <a href="https://github.com/UNOCourseDemo/hpcc-fs#readme">repository README</a>.</p>
   </section>
