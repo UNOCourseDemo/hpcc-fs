@@ -622,3 +622,15 @@ startup lottery redraws each phase). PFC 0.
 incast + 32 x 64 KB RPCs on the k=4 fat-tree: coflow JCT 9.25 vs 10.18 ms (−9.1%); incast
 0.92 vs 0.64 ms; RPCs 0.25 vs 0.05 ms; 15 transient pauses. The mode fits services gated by
 the collective; the short-flow tax is real but stays sub-millisecond.
+
+## F18 — d = 2 x RTT_max operating point + the full 30-phase collective (2026-08-04)
+
+**One fixed interval covers everything evaluated.** At d = 2 x RTT_max: headline N=4 1.003x,
+small-long unchanged, churn 1.007x (same absolute P_i), ring coflow 18.02 vs 17.99 ms, fan-in
+utilization 0.84/0.70 at S=64/128 — all PFC-free (`run_round8.py`). The N-dependence of the
+fan-in oscillation is classical loop gain (offered load moves N*dR per broadcast update);
+lengthening d is gain reduction.
+
+**Full ring allreduce, all 2(N-1) = 30 phases**, barrier-chained with controller state
+carried: 45.0 -> 35.2 ms end to end — a 21.9% full-collective gain; RDMA-RCP's thirty phase
+JCTs sit in [1.17, 1.19] ms while stock's redraw a startup lottery in [1.44, 1.56] ms; PFC 0.
