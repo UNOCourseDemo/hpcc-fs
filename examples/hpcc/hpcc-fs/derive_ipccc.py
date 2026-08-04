@@ -45,7 +45,9 @@ body=body.replace("""\\begin{figure*}[t]
 body=body.replace(r"\bibliographystyle{ACM-Reference-Format}",r"\bibliographystyle{IEEEtran}")
 pre=open("paper-ipccc.tex").read(); pre=pre[:pre.index(r"\begin{abstract}")]
 pre=pre.replace(r"\newcommand{\hpccfs}{\textsc{HPCC-FS}\xspace}", r"\newcommand{\hpccfs}{\textsc{RDMA-RCP}\xspace}")
-body = body.replace("\\includegraphics[width=\\textwidth]{fig_rate_trace.png}",
-                    "\\includegraphics[width=0.86\\textwidth]{fig_rate_trace.png}")
+body = body.replace("\\includegraphics[width=0.84\\textwidth]{fig_rate_trace.png}",
+                    "\\includegraphics[width=0.76\\textwidth]{fig_rate_trace.png}")
+body = body.replace("\\includegraphics[width=0.78\\textwidth]{fig_topo_parking.png}",
+                    "\\includegraphics[width=0.72\\textwidth]{fig_topo_parking.png}")
 open("paper-ipccc.tex","w").write(pre+"\\begin{abstract}\n"+abstract+"\n\\end{abstract}\n\n\\begin{IEEEkeywords}\ndatacenter networks, congestion control, RDMA, in-network telemetry, max-min fairness, RCP\n\\end{IEEEkeywords}\n"+body+"\n\\end{document}\n")
 print("derived")

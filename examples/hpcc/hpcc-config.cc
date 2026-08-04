@@ -72,6 +72,7 @@ void HpccConfig::loadFromYaml(const std::string& filename) {
     if (config["mix_fs_dport"])     mix_fs_dport = config["mix_fs_dport"].as<uint32_t>();
     if (config["fs_rcp_window"])    fs_rcp_window = config["fs_rcp_window"].as<bool>();
     if (config["fs_min_rate"])      fs_min_rate = config["fs_min_rate"].as<std::string>();
+    if (config["fs_fixed_point"])   fs_fixed_point = config["fs_fixed_point"].as<uint32_t>();
     if (config["fs_d_scale"])       fs_d_scale = config["fs_d_scale"].as<double>();
     if (config["dwrr_weights"])
         for (auto it : config["dwrr_weights"])

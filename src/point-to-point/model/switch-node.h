@@ -35,6 +35,11 @@ class SwitchNode : public Node{
 	double m_fsInitFrac;         // initial fair rate as fraction of C (default 0.5 = C/2)
 	uint16_t m_mixFsDport;       // cc_mode 12: UDP dport >= this marks the HPCC-FS traffic class
 	double m_fsDScale;           // cc_mode 11: scales the RCP control interval d (robustness sweeps)
+	// cc_mode 11: hardware-shaped fixed-point update (0 = off/double). Nonzero
+	// runs the RCP update in Q16 integer arithmetic with precomputed reciprocals
+	// and a constant-interval 1/d load estimate -- what an RMT stateful stage
+	// would execute -- instead of floating point with the exact elapsed time.
+	uint32_t m_fsFixedPoint;
 
 protected:
 	bool m_ecnEnabled;

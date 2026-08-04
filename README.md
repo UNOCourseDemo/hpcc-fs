@@ -44,11 +44,15 @@ path-length-independent; an idle port's frozen fair rate is benign after natural
 flows (the drain tail restores it to ≈C). **Fan-in and the rate floor:** conflating the
 adopted-rate floor with the 1 Gb/s cold-start makes N ≤ C/1G a hard bound (at S=64 incast:
 2,045 PFC pauses, 142 ms paused — floor-induced overload). With the floor decoupled
-(`fs_min_rate`, default 100 Mb/s) the mode avoids PFC through 128-way incast — but sustains
-only **25–50% utilization at S ≥ 64 regardless of flow size** (the port oscillates between
-multiplicative overshoot and the floor rail; a lower floor deepens the collapse), and
-N ≤ C/R_floor = 250 remains a hard bound ([`run_round5.py`](examples/hpcc/hpcc-fs/run_round5.py)).
-High fan-in is a standing limitation: those services belong on stock HPCC. Stock HPCC (`cc_mode 3`) is left **byte-for-byte
+(`fs_min_rate`, default 100 Mb/s) the mode avoids PFC through 128-way incast. At S ≥ 64 the
+port oscillates between multiplicative overshoot and the floor rail (verified by rate trace:
+goodput swings 3–25 Gbps, 91% of bins below C/2) — sustaining 25–50% utilization at the
+default control interval; **lengthening the interval (`fs_d_scale` ×2) restores 0.84–0.88
+PFC-free (×4: 0.87–0.94)** with the fairness headline unchanged
+([`run_round6.py`](examples/hpcc/hpcc-fs/run_round6.py)). N ≤ C/R_floor = 250 remains a hard
+bound. **Fixed-point verified:** a Q16, no-divider switch update (`fs_fixed_point`) reproduces
+the N-sweep/JCT/fan-in results within 1–4%; one real hazard found and fixed — an integer-Mbps
+R register deadlocks floor recovery (Kbps units in the same 32-bit register fix it). Stock HPCC (`cc_mode 3`) is left **byte-for-byte
 unchanged**.
 
 **Deployment boundary (negative result).** The two modes do not share a link fairly — *even under

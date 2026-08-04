@@ -81,9 +81,10 @@
     <code>cwnd = R·RTT</code> window, and cuts a ring-collective coflow's completion time by
     <strong>18–23%</strong> at every seed tested (18% with the INT header padded to stock size);
     on a saturating k=6 fabric, makespan improves 14%. We equally measure where the mode does not
-    belong: it cannot share an unsliced link with stock HPCC, and at fan-in past ~64 it sustains
-    only 25–50% utilization (a standing limitation; the adopted-rate floor bounds feasible
-    fan-in at C/R<sub>floor</sub>). We
+    belong: it cannot share an unsliced link with stock HPCC, and fan-in past ~64 needs a lengthened
+    control interval (25–50% utilization at the default; 84–94% at 2–4×d), with feasible
+    fan-in bounded at C/R<sub>floor</sub>; a Q16 fixed-point switch update reproduces the
+    headline results. We
     also measure the deployment boundary: RCP-mode and HPCC traffic do not coexist fairly on a
     shared link — even under a weighted-DRR reservation, because the classes' control signals
     remain port-global — so per-class deployment needs sliced telemetry or a separate fabric.

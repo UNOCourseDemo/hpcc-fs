@@ -63,6 +63,13 @@ TypeId SwitchNode::GetTypeId (void)
 			DoubleValue(1.0),
 			MakeDoubleAccessor(&SwitchNode::m_fsDScale),
 			MakeDoubleChecker<double>())
+	.AddAttribute("FsFixedPoint",
+			"cc_mode 11: nonzero = run the RCP update in Q16 fixed-point with precomputed "
+			"reciprocals and a constant 1/d load estimate (hardware-shaped arithmetic); "
+			"0 = floating point (default)",
+			UintegerValue(0),
+			MakeUintegerAccessor(&SwitchNode::m_fsFixedPoint),
+			MakeUintegerChecker<uint32_t>())
 	.AddAttribute("MixFsDport",
 			"cc_mode 12: UDP dport >= this value marks the HPCC-FS traffic class (0 = disabled)",
 			UintegerValue(0),
@@ -95,6 +102,7 @@ SwitchNode::SwitchNode(){
 	m_fsBeta = 0.226;
 	m_fsInitFrac = 0.5;
 	m_mixFsDport = 0;
+	m_fsFixedPoint = 0;
 	m_fsDScale = 1.0;
 }
 
@@ -368,16 +376,62 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				uint64_t rdt = nowts - m_rcpLastTs[ifIndex];
 				uint64_t dEff = (uint64_t)(m_maxRtt * m_fsDScale); // robustness knob, default = m_maxRtt
 				if (rdt >= dEff && rdt > 0){ // recompute fair rate once per control interval (~RTT)
-					double d_s = dEff * 1e-9;
-					double dt_s = rdt * 1e-9;
-					double y = (double)(m_txBytes[ifIndex] - m_rcpLastBytes[ifIndex]) * 8.0 / dt_s; // bits/s
-					double q = (double)dev->GetQueue()->GetNBytesTotal(); // bytes
-					double alpha = m_fsAlpha, beta = m_fsBeta; // RCP gains (configurable)
-					double ratio = (alpha * ((double)Cbps - y) - beta * (q * 8.0) / d_s) / (double)Cbps;
-					double Rn = m_fairR[ifIndex] * (1.0 + ratio);
-					if (Rn < 1e6) Rn = 1e6;             // 1 Mbps floor
-					if (Rn > (double)Cbps) Rn = (double)Cbps;
-					m_fairR[ifIndex] = Rn;
+					if (m_fsFixedPoint){
+						// Hardware-shaped Q16 path: integer arithmetic only, reciprocals
+						// precomputed per port, and the load estimate divides by the
+						// CONSTANT interval dEff (an RMT stage has no divider and would
+						// bake in 1/d), not the exact elapsed rdt.
+						uint64_t yBits = (m_txBytes[ifIndex] - m_rcpLastBytes[ifIndex]) * 8;
+						uint32_t Cmbps = (uint32_t)(Cbps / 1000000);
+						// y in Mbps = yBits*1000/rdt_ns with rdt quantized to a
+						// 2-bit-mantissa floating bucket: rdt ~ (m/4)*2^k*dEff,
+						// m in [4,8). Priority encoder + an 8-entry reciprocal LUT +
+						// shift -- no divider. (Pure power-of-two quantization, error
+						// up to 2x, was too coarse in the marginally stable fan-in
+						// regime: it left utilization at 0.27 vs 0.84.)
+						uint32_t k = 0;
+						while ((dEff << (k + 1)) <= rdt && k < 20) k++;
+						uint32_t m4 = (uint32_t)((rdt << 2) / (dEff << k)); // 4..7
+						if (m4 < 4) m4 = 4;
+						if (m4 > 7) m4 = 7;
+						uint64_t invD4_q32 = (((uint64_t)4000) << 32) / dEff;
+						uint32_t yMbps = (uint32_t)(((yBits * invD4_q32) >> (32 + k)) / m4);
+						int32_t a1_q16 = (int32_t)(m_fsAlpha * 65536.0);
+						uint64_t invC_q32 = (((uint64_t)1) << 32) / Cmbps;
+						// beta*8/(d_s*Cbps) per queued byte, in Q32
+						uint64_t b2_q32 = (uint64_t)(m_fsBeta * 8.0 * 4294967296.0 * 1e9
+						                             / ((double)dEff * (double)Cbps));
+						uint64_t qBytes = dev->GetQueue()->GetNBytesTotal();
+						int64_t term1_q16 = ((int64_t)a1_q16 * ((int64_t)Cmbps - (int64_t)yMbps)
+						                     * (int64_t)invC_q32) >> 32;
+						int64_t term2_q16 = (int64_t)((qBytes * b2_q32) >> 16);
+						int64_t ratio_q16 = term1_q16 - term2_q16;
+						int64_t factor_q16 = 65536 + ratio_q16;
+						if (factor_q16 < 0) factor_q16 = 0;
+						// R register in Kbps, not Mbps: with integer-Mbps units,
+						// multiplicative growth truncates to zero below ~2.5 Mbps and
+						// recovery from the floor deadlocks (measured: the fan-in case
+						// pins at the sender floor, utilization 0.27). Kbps units in
+						// the same 32-bit register remove the stall; 25 Gbps = 2.5e7
+						// Kbps still fits comfortably.
+						uint32_t Rkbps = (uint32_t)(m_fairR[ifIndex] / 1e3);
+						if (Rkbps < 1000) Rkbps = 1000;             // 1 Mbps floor
+						uint64_t Rn_kbps = ((uint64_t)Rkbps * (uint64_t)factor_q16) >> 16;
+						if (Rn_kbps < 1000) Rn_kbps = 1000;
+						if (Rn_kbps > (uint64_t)Cmbps * 1000) Rn_kbps = (uint64_t)Cmbps * 1000;
+						m_fairR[ifIndex] = (double)Rn_kbps * 1e3;
+					}else{
+						double d_s = dEff * 1e-9;
+						double dt_s = rdt * 1e-9;
+						double y = (double)(m_txBytes[ifIndex] - m_rcpLastBytes[ifIndex]) * 8.0 / dt_s; // bits/s
+						double q = (double)dev->GetQueue()->GetNBytesTotal(); // bytes
+						double alpha = m_fsAlpha, beta = m_fsBeta; // RCP gains (configurable)
+						double ratio = (alpha * ((double)Cbps - y) - beta * (q * 8.0) / d_s) / (double)Cbps;
+						double Rn = m_fairR[ifIndex] * (1.0 + ratio);
+						if (Rn < 1e6) Rn = 1e6;             // 1 Mbps floor
+						if (Rn > (double)Cbps) Rn = (double)Cbps;
+						m_fairR[ifIndex] = Rn;
+					}
 					m_rcpLastTs[ifIndex] = nowts;
 					m_rcpLastBytes[ifIndex] = m_txBytes[ifIndex];
 				}

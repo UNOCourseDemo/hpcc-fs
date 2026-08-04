@@ -1,4 +1,4 @@
-# HPCC-FS findings log
+# Idea-a findings log
 
 ## F1 — Multi-bottleneck unfairness, and an INT hop-count cliff (2026-05-23/24)
 
@@ -26,7 +26,7 @@ No PFC events in any run.
 ### Two regimes, two causes
 
 **Regime A (N≤4): genuine multi-bottleneck starvation.** The long flow is penalized ~1.9×,
-growing slightly with N. This is the real HPCC convergence/fairness gap HPCC-FS targets: the
+growing slightly with N. This is the real HPCC convergence/fairness gap idea-a targets: the
 per-link lower-bound estimate makes the multi-bottleneck flow under-claim relative to single-
 bottleneck competitors. *This is the valid regime for studying the convergence gap.*
 
@@ -52,7 +52,7 @@ RTT=10.8 µs. The transition is purely hop-count (N), exactly the 5→6 switch b
 - **Methodology:** stock HPCC's valid regime in this simulator is paths ≤5 switches
   (≤4 bottlenecks in this parking-lot). Exclude N≥5 from convergence/fairness claims, or treat
   it explicitly as the INT-capacity-limit story.
-- **For HPCC-FS:** concrete evidence that standard INT has a hard per-path hop budget, and that
+- **For idea-a:** concrete evidence that standard INT has a hard per-path hop budget, and that
   deep multi-bottleneck paths (cross-pod / multi-tier Clos can exceed 5 hops) break HPCC
   outright. Directly motivates the "minimal INT extension / aggregation" angle: any mechanism
   must either live within the per-hop budget or compress/aggregate to a path-summary signal.
@@ -98,7 +98,7 @@ Same parking-lot, equal 50 MB, simultaneous. Unfairness (long/short FCT), oracle
 
 Multi-rate (per-hop EWMA utilization, sender takes min rate across hops) helps the long flow but
 the penalty persists and still **grows with bottleneck count**. So multi-bottleneck unfairness is
-intrinsic to HPCC's load-based control in both modes. **The HPCC-FS mechanism must beat the
+intrinsic to HPCC's load-based control in both modes. **The idea-a mechanism must beat the
 stronger multi-rate baseline (~1.4–1.75×), targeting penalty → 1.0× (true max-min) in ~1 RTT.**
 
 Root mechanism: HPCC signals link *load/utilization*, not per-flow *fair share*. A flow crossing
@@ -591,89 +591,21 @@ reaction may still matter; we tested clean incast + steady single-bottleneck, no
 dynamics. Honest framing for the paper: *fairness essentially for free on the home-turf workloads
 we measured, with a queue benefit; full precision parity is what the hybrid overlay targets.*
 
-## F13 — Round-3 hardening: absolute metrics, FQ control, boundaries (2026-08-04)
+## F16 — Enhancement round: oscillation damped; fixed-point verified (2026-08-04)
 
-**Absolute oracle-relative FCT (`run_stress_matrix.py`, extended).** The heterogeneous-contention
-matrix now reports per-flow P = FCT / oracle-FCT absolutely, plus bottleneck utilization. RDMA-RCP:
-P ∈ [1.05, 1.13] in every scenario (mean 1.06 — a uniform convergence overhead), utilization
-0.65–0.78 vs stock's 0.51–0.70. Stock: P scattered 0.41–1.34. The tight ratio comes with tight
-absolute proximity — and the metric catches what a ratio hides: a three-factor joint stress
-(churn + 4× RTT spread + d/4) keeps the ratio at 1.000 while P rises to 1.21–1.39 (uniform
-slowdown, honestly reported).
+**The fan-in oscillation, observed and damped.** Receiver-side rate trace at S=64: aggregate
+goodput swings 3.4–24.7 Gbps with 91% of bins below C/2 (`run_round6.py`). Lengthening the
+control interval (existing `fs_d_scale`) damps it: x2 → utilization 0.84–0.88 at S=64 (both
+200 KB and 10 MB, PFC-free); x4 → 0.87–0.94 (44 pauses at S=64, none at S=128). The N=4
+fairness headline is unchanged under x4 (1.003x, PFC 0). Gain reduction (alpha) alone helps
+far less. Residual gap to stock HPCC's 0.92 at the default interval remains.
 
-**Per-flow fair queueing does not close the gap (`run_round3.py`).** One queue per flow +
-equal-weight byte-deficit DRR at every switch port, stock HPCC senders: unfairness 1.970× —
-identical to FIFO. The long flow's window, driven by port-global INT (u≈1), never offers the
-packets; a work-conserving scheduler hands the slack back to the crosses. The correction must
-reach the signal the sender obeys.
-
-**Header-size control (`run_round3.py`).** Ring-coflow JCT with the RCP class padded to stock's
-42-byte INT layout (cc_mode 12, all-FS): 19.0 ms vs stock 23.3 ms — 18% gain under
-byte-identical headers (23% with the 8-byte field). The gain is fairness, not header thinness.
-
-**Idle-port staleness is benign (`run_round3.py`).** Congest a port, idle 0.1–100 ms, release a
-1 MB probe: FCT 0.373 ms at every gap — faster than a fresh port's 0.713 ms (R₀=C/2 ramp) —
-because the drain tail's final dequeues restore R to ≈C before the port empties.
-
-**Incast fan-in boundary (`run_round3.py`).** S = 3–64 senders → one 25 G link, 200 KB each.
-RCP (1 G start): PFC-free through S=32 and faster than HPCC there (2.13 vs 2.23 ms); at S=64 it
-takes ~4k PFC pauses (HPCC: 128) at comparable FCT. Extreme fan-in is stock HPCC's home turf —
-reported as a scope limit.
-
-**Saturating k=6 fabric (`run_scale_saturate.py`).** 108 identical 20 MB inter-pod flows, every
-stage at capacity under ECMP, 45 switches: makespan 42.90 → 35.86 ms (−16.4%), Jain 0.910 →
-0.926 (residual spread is ECMP placement for both schemes), PFC = 0 for both.
-
-**ECMP seeds 5 → 20 (`run_ecmp_seeds.py`).** Stock raw long/short ratio: mean 1.14, median 1.06,
-range 0.96–1.40. RDMA-RCP: mean 1.04, median 1.001; 15/20 seeds within 3% of parity — the five
-residuals are hash placements that collide the long flows onto shared cores, where equal FCTs
-are not the oracle allocation either.
-
-**Claim narrowed.** "Consistency, not information" is now stated as history-dependence of
-*private explicit-rate state*: independently maintained copies preserve arrival-order asymmetry;
-a shared per-link register erases it. No impossibility claim for contractive endpoint laws
-(AIMD-style) — though the AIMD-flavored schemes measured still show 1.6–2.3×.
-
-## F14 — Round-4 corrections: the rate floor, and what fair queueing really shows (2026-08-04)
-
-**The rate floor was a real design flaw (reviewer-caught).** `HandleAckFs` clamped the adopted
-fair rate to the 1 Gb/s cold-start, so N ≤ C/1G = 25 was a hard incast bound: at S=64 every
-sender was forced above its 0.39 Gb/s fair share and PFC enforced the sharing the endpoint
-could not adopt (2,045 pauses, 142 ms cumulative). The switch-side floor was already 1 Mb/s —
-the conflation was sender-side only. Fixed with `fs_min_rate` (adopted-rate floor, default
-100 Mb/s, distinct from the cold-start): PFC = 0 through S=128, per-sender rates reach
-182 Mb/s at S=64. Residual: ~2× stock HPCC's FCT at S≥64 (convergence), while HPCC itself
-takes 64 pauses/36.5 ms at S=64. The floor never binds when fair shares exceed it: stress
-matrix, ring JCT, 20-seed ECMP, and mixed-mode gates reproduce exactly; the k=6 saturating
-makespan becomes 36.7 ms (−14%; −11% under a padded header).
-
-**Fair queueing: our round-3 inference was too strong — corrected.** Window ablations under
-per-flow equal-weight DRR (`run_round4.py`): NIC-scaled window 1.970×; **no window 0.997× —
-equal, but at ~0.9 Gb/s per flow ≈ 13.6× every flow's oracle FCT** (rates settle near the
-sender floor; the fabric idles at ~7% utilization); fixed maxBDP window 1.517×. So scheduling
-*can* equalize once the window is removed — but the equal outcome is far from the max-min
-allocation. The discriminator is the absolute oracle-relative FCT metric: 13.6× (FQ +
-windowless) vs 1.06× (shared register). The corrected claim: fair scheduling enforces
-equality; the allocation additionally needs a rate signal.
-
-## F15 — Round-5: fan-in truth, calibrated oracle, HPCC parameter sweep (2026-08-04)
-
-**High fan-in is a standing limitation, not a convergence cost.** Fan-in × flow-size matrix
-(`run_round5.py`): at S=64 lifetime utilization (serialization bound / FCT) is 0.47 at 200 KB
-and FALLS to 0.25 at 50 MB (stock HPCC: 0.92 at every size, with 64 pauses/36.5 ms). The port
-oscillates between multiplicative overshoot and the floor rail; a 50 Mb/s floor makes it worse
-(0.26 at S=128). The decoupled floor moves, not removes, the feasibility bound
-(N ≤ C/R_floor = 250 at 100 Mb/s; at S=256 senders pin at the floor). No flow size makes S=64
-competitive with stock HPCC — fan-in-heavy services belong on the stock side of the slice.
-
-**The 5–13% oracle excess is wire accounting, not convergence.** The fluid oracle is a
-bandwidth-allocation lower bound (payload bits only). A solo, uncontended calibration flow
-completes 5.8% above it on wire/protocol overhead alone — so the heterogeneous matrix's
-P ∈ [1.05, 1.13] carries ≈0 measured convergence outside churn.
-
-**HPCC's unfairness is not a tuning artifact.** Sweeping η ∈ {0.90, 0.95, 0.98}, rate_ai up to
-25× (1 Gb/s), and min_rate at N=4 leaves the ratio at 1.74–1.97× (largest AI best), PFC 0 —
-additive recovery is directionally right but orders too slow.
-
-**Per-QP fairness is exploitable, measured.** A job opening two QPs obtains exactly 2.00× a
-one-QP job's bandwidth on a shared bottleneck.
+**Q16 fixed-point switch update (`fs_fixed_point`).** Hardware-shaped arithmetic — Q16
+multiplier, precomputed 1/C and beta/(dC) reciprocals, an 8-entry elapsed-interval reciprocal
+LUT, no divider — reproduces the N-sweep (1.001–1.004x vs double's 1.003–1.005x), ring JCT
+(18.16 vs 17.99 ms), and damped fan-in (0.81 vs 0.84). One genuine quantization hazard was
+found and fixed along the way: holding R in integer **Mbps** deadlocks recovery from the rate
+floor — multiplicative growth truncates to zero below ~2.5 Mbps, so the fan-in case pins at
+the sender floor (0.27, exactly 64 x 100 Mb/s / 25 G). The same 32-bit register in **Kbps**
+units removes the stall. Register units, not arithmetic width, were the binding co-design
+choice.
