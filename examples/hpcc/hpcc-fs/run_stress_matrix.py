@@ -217,7 +217,20 @@ def penalty(base, flow_defs, sim_src, caps, long_fids):
     ofct = oracle_fcts(flow_defs, caps)
     pens = {f: fct[sim_src[f]] / ofct[f] for f in flow_defs if sim_src[f] in fct}
     wl = max(pens[f] for f in long_fids)
-    return wl / min(pens.values()), wl
+    vals = list(pens.values())
+    # bottleneck utilization: bits crossing each link / (C x [first start, last finish])
+    import collections
+    first = min(st for (_, _, st) in flow_defs.values())
+    util = {}
+    for lid, C in caps.items():
+        bits = sum(sz for (L, sz, _) in flow_defs.values() if lid in L)
+        last = max(fct[sim_src[f]] + flow_defs[f][2] for f in flow_defs
+                   if lid in flow_defs[f][0] and sim_src[f] in fct)
+        util[lid] = bits / (C * (last - first))
+    stats = {"unf": wl / min(vals), "wl": wl,
+             "pmin": min(vals), "pmean": sum(vals)/len(vals), "pmax": max(vals),
+             "util": sum(util.values())/len(util)}
+    return stats
 
 
 def scen(name, caps_gbps, crosses, longs, extra=None):
@@ -226,13 +239,12 @@ def scen(name, caps_gbps, crosses, longs, extra=None):
         base, fd, ss, caps = build_scenario(f"{name}{lab}", caps_gbps, crosses,
                                             longs, extra, cc_mode=cc)
         nlong = len(longs)
-        lp, wp = penalty(base, fd, ss, caps, list(range(nlong)))
-        rows[cc] = (lp, wp)
+        rows[cc] = penalty(base, fd, ss, caps, list(range(nlong)))
     return rows
 
 
 def main():
-    print(f"{'scenario':<22} | {'stock unf':>10} {'o-pen':>7} | {'RCP unf':>9} {'o-pen':>7}")
+    print(f"{'scenario':<16} | {'stock: unf  P[min,mean,max] util':<34} | {'RCP: unf  P[min,mean,max] util':<32}")
     print("-" * 66)
     S = 50_000_000
     tests = [
@@ -247,8 +259,9 @@ def main():
     ]
     for name, caps, crosses, longs, extra in tests:
         r = scen(name.split()[0], caps, crosses, longs, extra)
-        print(f"{name:<22} | {r[3][0]:>9.3f}x {r[3][1]:>6.2f}x | "
-              f"{r[11][0]:>8.3f}x {r[11][1]:>6.2f}x")   # (unfairness, long oracle-norm)
+        a, b = r[3], r[11]
+        print(f"{name:<16} | {a['unf']:>6.3f}x P[{a['pmin']:.2f},{a['pmean']:.2f},{a['pmax']:.2f}] u={a['util']:.2f} | "
+              f"{b['unf']:>6.3f}x P[{b['pmin']:.2f},{b['pmean']:.2f},{b['pmax']:.2f}] u={b['util']:.2f}")
 
     # S5: RDMA-RCP under heterogeneous RTT (existing generator knobs)
     print()

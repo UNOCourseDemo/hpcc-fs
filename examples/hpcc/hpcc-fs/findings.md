@@ -590,3 +590,46 @@ control (not HPCC's per-hop precision), so on rapidly-varying / microburst workl
 reaction may still matter; we tested clean incast + steady single-bottleneck, not adversarial
 dynamics. Honest framing for the paper: *fairness essentially for free on the home-turf workloads
 we measured, with a queue benefit; full precision parity is what the hybrid overlay targets.*
+
+## F13 — Round-3 hardening: absolute metrics, FQ control, boundaries (2026-08-04)
+
+**Absolute oracle-relative FCT (`run_stress_matrix.py`, extended).** The heterogeneous-contention
+matrix now reports per-flow P = FCT / oracle-FCT absolutely, plus bottleneck utilization. RDMA-RCP:
+P ∈ [1.05, 1.13] in every scenario (mean 1.06 — a uniform convergence overhead), utilization
+0.65–0.78 vs stock's 0.51–0.70. Stock: P scattered 0.41–1.34. The tight ratio comes with tight
+absolute proximity — and the metric catches what a ratio hides: a three-factor joint stress
+(churn + 4× RTT spread + d/4) keeps the ratio at 1.000 while P rises to 1.21–1.39 (uniform
+slowdown, honestly reported).
+
+**Per-flow fair queueing does not close the gap (`run_round3.py`).** One queue per flow +
+equal-weight byte-deficit DRR at every switch port, stock HPCC senders: unfairness 1.970× —
+identical to FIFO. The long flow's window, driven by port-global INT (u≈1), never offers the
+packets; a work-conserving scheduler hands the slack back to the crosses. The correction must
+reach the signal the sender obeys.
+
+**Header-size control (`run_round3.py`).** Ring-coflow JCT with the RCP class padded to stock's
+42-byte INT layout (cc_mode 12, all-FS): 19.0 ms vs stock 23.3 ms — 18% gain under
+byte-identical headers (23% with the 8-byte field). The gain is fairness, not header thinness.
+
+**Idle-port staleness is benign (`run_round3.py`).** Congest a port, idle 0.1–100 ms, release a
+1 MB probe: FCT 0.373 ms at every gap — faster than a fresh port's 0.713 ms (R₀=C/2 ramp) —
+because the drain tail's final dequeues restore R to ≈C before the port empties.
+
+**Incast fan-in boundary (`run_round3.py`).** S = 3–64 senders → one 25 G link, 200 KB each.
+RCP (1 G start): PFC-free through S=32 and faster than HPCC there (2.13 vs 2.23 ms); at S=64 it
+takes ~4k PFC pauses (HPCC: 128) at comparable FCT. Extreme fan-in is stock HPCC's home turf —
+reported as a scope limit.
+
+**Saturating k=6 fabric (`run_scale_saturate.py`).** 108 identical 20 MB inter-pod flows, every
+stage at capacity under ECMP, 45 switches: makespan 42.90 → 35.86 ms (−16.4%), Jain 0.910 →
+0.926 (residual spread is ECMP placement for both schemes), PFC = 0 for both.
+
+**ECMP seeds 5 → 20 (`run_ecmp_seeds.py`).** Stock raw long/short ratio: mean 1.14, median 1.06,
+range 0.96–1.40. RDMA-RCP: mean 1.04, median 1.001; 15/20 seeds within 3% of parity — the five
+residuals are hash placements that collide the long flows onto shared cores, where equal FCTs
+are not the oracle allocation either.
+
+**Claim narrowed.** "Consistency, not information" is now stated as history-dependence of
+*private explicit-rate state*: independently maintained copies preserve arrival-order asymmetry;
+a shared per-link register erases it. No impossibility claim for contractive endpoint laws
+(AIMD-style) — though the AIMD-flavored schemes measured still show 1.6–2.3×.

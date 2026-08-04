@@ -66,15 +66,20 @@
     lossless RDMA fabrics. On a parameterized parking-lot benchmark with a fluid max-min oracle,
     <em>every</em> deployable scheme we test is unfair to the multi-bottleneck flow — DCQCN
     1.7–2.3×, TIMELY 1.8–2.0×, DCTCP 1.6–1.8×, HPCC 1.9–2.0× — growing with bottleneck count and
-    robust to start-time jitter. For HPCC we localize the mechanism: a winner-take-all equilibrium
-    in which the multi-bottleneck flow collapses to ~0.4 Gbps. Six sender-only corrections fail,
-    including a sender-side mirror of RCP driven by the same INT signals — evidence that the
-    obstacle is not information but <em>consistency</em>: max-min needs one shared reference rate
-    per link, and private per-sender estimates never agree. Placing that reference at the switch —
-    <strong>RDMA-RCP</strong>, an RCP service mode carried in one 64-bit INT field with one fair-rate register (three words of state)
-    per port — restores the max-min allocation (penalty <strong>≈1.005×</strong>) with
-    <strong>zero PFC</strong>, rate-only or with a canonical <code>cwnd = R·RTT</code> window, and
-    cuts allreduce-style coflow completion time by <strong>~21%</strong> at every ECMP seed. We
+    robust to start-time jitter. For HPCC we localize the mechanism: a near-winner-take-all
+    equilibrium in which the multi-bottleneck flow collapses to ~0.4 Gbps. Six sender-only
+    corrections fail — including a sender-side mirror of RCP driven by the same INT signals — and
+    so does per-flow fair queueing under stock senders (1.97×): the obstacle is where the rate
+    state <em>lives</em>. Private, independently maintained copies of an explicit-rate recursion
+    preserve arrival-history asymmetry indefinitely; one shared per-link register erases it.
+    Placing that register at the switch —
+    <strong>RDMA-RCP</strong>, an RCP service mode carried in one 64-bit INT field with three
+    words of mutable state per port — restores the max-min allocation (penalty
+    <strong>≈1.005×</strong>, every flow within 5–13% of its oracle FCT) with
+    <strong>zero PFC</strong> in every fairness experiment, rate-only or with a canonical
+    <code>cwnd = R·RTT</code> window, and cuts a ring-collective coflow's completion time by
+    <strong>18–23%</strong> at every seed tested (18% with the INT header padded to stock size);
+    on a saturating k=6 fabric, makespan improves 16%. We
     also measure the deployment boundary: RCP-mode and HPCC traffic do not coexist fairly on a
     shared link — even under a weighted-DRR reservation, because the classes' control signals
     remain port-global — so per-class deployment needs sliced telemetry or a separate fabric.

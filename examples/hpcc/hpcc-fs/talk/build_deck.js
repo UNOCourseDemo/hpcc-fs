@@ -221,7 +221,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 8 · structural reason (dark emphasis)
 {
   const s = p.addSlide(); s.background = { color: NAVY };
-  titleBar(s, "Why", "Consistency, not information: what the RCP mirror proves", true);
+  titleBar(s, "Why", "Where the rate state lives: what the RCP mirror proves", true);
   const card = (x, head, lines, tint) => {
     s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 1.55, w: 4.25, h: 2.55, fill: { color: PAPER }, rectRadius: 0.1, shadow: sh() });
     s.addText(head, { x: x + 0.28, y: 1.78, w: 3.7, h: 0.4, fontSize: 16, bold: true, color: tint, fontFace: "Calibri", margin: 0 });
@@ -233,12 +233,12 @@ function chip(s, x, y, w, txt, fg, bg) {
   ], RED);
   card(5.15, "2 · Private estimates never agree", [
     { text: "RCP’s inputs (C, y, q) ARE in INT. A sender-side RCP mirror (mb_mode 6) still fails: 1.56× synced, 1.65×/0.81× staggered — direction set by arrival order.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "Multiplicative recursions on private state preserve initial disagreement. Max-min needs ONE shared reference rate.", options: { fontSize: 12.5, color: MUT } },
+    { text: "Private copies of the explicit-rate recursion preserve arrival-history asymmetry; ONE shared per-link register erases it. Per-flow fair queueing under stock senders: still 1.97×.", options: { fontSize: 12.5, color: MUT } },
   ], RED);
   s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.35, w: 8.8, h: 0.85, fill: { color: BLUE }, rectRadius: 0.1, shadow: sh() });
-  s.addText("A per-port register is the cheapest shared reference every flow can agree on. That is why it belongs at the switch.", {
+  s.addText("A shared per-port register carries the history a private copy cannot replicate. That is why it belongs at the switch.", {
     x: 0.85, y: 4.42, w: 8.3, h: 0.72, fontSize: 16.5, bold: true, color: PAPER, fontFace: "Cambria", align: "center", valign: "middle" });
-  s.addNotes("Two reasons. First, at eta-hold, HPCC's multiplicative machinery goes idle — everyone holds what they grabbed. Second — and this is the paper's sharpest experiment — the obstacle is NOT information. RCP's inputs are all sender-visible in INT, so we ran the strongest sender design: a private per-hop RCP mirror. Same law, same inputs, same gains. It still fails, and the direction of unfairness flips with arrival order — because multiplicative updates on private state preserve initial disagreement forever. Max-min is an agreement property: every flow must adopt one shared rate. A per-port register is the cheapest consistent shared reference. That is the placement result, and it is why RCP belongs in the switch.");
+  s.addNotes("Two reasons. First, at eta-hold, HPCC's multiplicative machinery goes idle — everyone holds what they grabbed. Second — and this is the paper's sharpest experiment — the obstacle is NOT information. RCP's inputs are all sender-visible in INT, so we ran the most direct sender design: a private per-hop RCP mirror. Same law, same inputs, same gains. It still fails, and the direction of unfairness flips with arrival order — because independently maintained rate state preserves arrival-history asymmetry forever, while a shared register erases it. Even per-flow fair queueing under stock senders leaves 1.97 times — a scheduler cannot give bandwidth a window-limited sender never offers. That is the placement result, scoped to explicit-rate state, and it is why RCP belongs in the switch.");
 }
 
 // ============================================================ 9 · RCP in 60s
@@ -386,7 +386,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 13b · coflow JCT
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "Results", "The job is gated by its slowest flow: \u221221% JCT");
+  titleBar(s, "Results", "The job is gated by its slowest flow: \u221218\u201323% JCT");
   s.addChart(p.charts.BAR, [
     { name: "stock HPCC", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [23.27, 22.44, 23.22, 22.33, 23.11] },
     { name: "RDMA-RCP", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [17.99, 17.96, 17.99, 17.97, 17.92] },
@@ -400,7 +400,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addText("16-flow ring allreduce, k=4 fat-tree \u2014 JCT = slowest flow (ms), 5 ECMP hash seeds", {
     x: 0.35, y: 4.83, w: 6.0, h: 0.35, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
   const stats = [
-    ["\u221221%", "mean JCT \u2014 improves at every seed (+19.5\u2026+22.7%)", BLUE, BLUET],
+    ["\u221218\u201323%", "JCT, every seed tested \u2014 \u221218% with the INT header padded to stock size", BLUE, BLUET],
     ["17.9\u201318.0 ms", "FS JCT is placement-invariant (stock 22.3\u201323.3)", BLUE, BLUET],
     ["~3\u00d7 faster", "short background flows in this mix \u2014 max-min removes the placement lottery", GREENOK, "E9F4EC"],
   ];
@@ -412,7 +412,7 @@ function chip(s, x, y, w, txt, fg, bg) {
       { text: t[1], options: { fontSize: 10.5, color: INK } },
     ], { x: 6.55, y: y + 0.08, w: 2.8, h: 0.86, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
-  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring allreduce across five ECMP hash seeds: RDMA-RCP cuts job completion time about 21 percent at every seed, and makes it placement-invariant. And a nuance we like being honest about: in this mix the short background flows also got three times faster — under winner-take-all, whether a short flow wins or loses is a placement lottery; max-min removes the lottery.");
+  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring coflow — one phase of a ring allreduce — across five ECMP hash seeds: RDMA-RCP cuts completion time 18 to 23 percent at every seed tested, and 18 percent survives padding the INT header to stock size, so the gain is fairness, not header thinness. On a saturating k-equals-6 fabric with 108 inter-pod flows, makespan improves 16 percent. And the short background flows got three times faster — under near-winner-take-all dynamics, a short flow's fate is a placement lottery; max-min removes it.");
 }
 
 // ============================================================ 14 · defensibility
@@ -479,8 +479,8 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Conclusion", "One field, one scalar — a coexisting fairness mode", true);
   const rows = [
     ["Diagnosis", "HPCC starves multi-bottleneck flows ~2× (3.5× small flows); breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
-    ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror. Max-min needs one shared reference rate.", ICE],
-    ["RDMA-RCP", "A per-class mode alongside HPCC: 1.005×, zero PFC, −21% coflow JCT, stock path untouched.", BLUE],
+    ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror — and per-flow FQ too. Private rate state keeps arrival history; a shared register erases it.", ICE],
+    ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle, zero PFC, −18–23% coflow JCT, stock path untouched.", BLUE],
   ];
   rows.forEach((r, i) => {
     const y = 1.55 + i * 1.0;

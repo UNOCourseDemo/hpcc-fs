@@ -22,7 +22,7 @@ BIN = os.path.join(REPO, "build/examples/hpcc/ns3.45-hpcc-validation-optimized")
 sys.path.insert(0, HERE)
 import gen_fattree_k4 as g4  # noqa: E402
 
-SEEDS = [0, 101, 202, 303, 404]
+SEEDS = [0] + [101 * i for i in range(1, 20)]
 LONG_SRC = {20, 22, 24, 26}
 SHORT_SRC = {21, 25, 29, 33}
 

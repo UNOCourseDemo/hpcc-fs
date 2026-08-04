@@ -2,7 +2,7 @@
 
 An empirical study of multi-bottleneck max-min fairness on lossless RDMA fabrics, and
 **RDMA-RCP** (implementation name `HPCC-FS`, `cc_mode 11`): an RCP service mode carried in *one*
-INT fair-rate field with one fair-rate register (three words of state) per switch port, offered
+INT fair-rate field with three words of mutable state per switch port, offered
 alongside byte-for-byte unchanged stock HPCC. All of our work lives under `examples/hpcc/hpcc-fs/`.
 
 **Finding 1 — the failure spans every scheme we evaluated.** On a parameterized parking-lot benchmark with a fluid
@@ -10,24 +10,36 @@ max-min oracle, *every* deployable RDMA CC scheme is unfair to the multi-bottlen
 **1.70–2.32×**, TIMELY 1.83–2.01×, DCTCP 1.61–1.78×, HPCC 1.90–1.96× at *N* = 2–4 — all growing
 with bottleneck count and robust to start-time jitter
 ([`run_cc_baselines.py`](examples/hpcc/hpcc-fs/run_cc_baselines.py)). HPCC's instance is
-**winner-take-all** (the long flow collapses to ~0.4 Gbps; 3.5× for small flows), RTT-independent,
+**near-winner-take-all** (the long flow collapses to ~0.4 Gbps; 3.5× for small flows), RTT-independent,
 and compounded past *N* = 4 by the original wire format's `maxHop = 5` cap.
 
-**Finding 2 — consistency, not information.** Six sender-only corrections fail — including a full
+**Finding 2 — where the rate state lives.** Six sender-only corrections fail — including a full
 sender-side **mirror of the RCP recursion** driven by the same INT-visible inputs the switch would
 use (`mb_mode 6`, [`run_vrcp.py`](examples/hpcc/hpcc-fs/run_vrcp.py)): 1.56× even with synchronized
 starts, 1.65×/0.81× under staggered arrival (direction set by arrival order), while the identical
-law at the switch holds ≈1.0×. Max-min needs **one shared reference rate per link**; private
-multiplicative estimates never agree. Empirical evidence, not a formal impossibility.
+law at the switch holds ≈1.0×. **Per-flow fair queueing under stock senders fails too** (equal-weight
+DRR at every port: still 1.97×, [`run_round3.py`](examples/hpcc/hpcc-fs/run_round3.py) — a
+work-conserving scheduler cannot allocate bandwidth a window-limited sender never offers). The
+mechanism is history: private, independently maintained explicit-rate state preserves
+arrival-order asymmetry indefinitely; one shared per-link register erases it. Empirical evidence
+about explicit-rate state placement, not a formal impossibility.
 
 **Finding 3 — RDMA-RCP restores max-min.** Penalty **1.005× at *N* = 4** (flat through *N* = 6),
 across asymmetric sizes / staggered + jittered starts / ECMP hash seeds — and across heterogeneous
 capacities, unequal competitor counts, overlapping multi-bottleneck flows, and cross-flow churn
-(generalized unfairness 1.001–1.007×, [`run_stress_matrix.py`](examples/hpcc/hpcc-fs/run_stress_matrix.py),
-where stock reaches 1.41–2.87×) — **zero PFC**, operating
-rate-only *or* with a canonical RCP window (`cwnd = R·baseRTT`) — and cutting allreduce-style
-coflow JCT by **~21%** at every ECMP seed. Convergence is sub-millisecond and
-path-length-independent. Stock HPCC (`cc_mode 3`) is left **byte-for-byte unchanged**.
+(generalized unfairness 1.001–1.007× with **every flow within 5–13% of its own oracle FCT** and
+*higher* bottleneck utilization than stock,
+[`run_stress_matrix.py`](examples/hpcc/hpcc-fs/run_stress_matrix.py), where stock reaches
+1.41–2.87× with per-flow spread 0.41–1.34) — **zero PFC in every fairness experiment**, operating
+rate-only *or* with a canonical RCP window (`cwnd = R·baseRTT`) — and cutting a ring-collective
+coflow's JCT by **18–23%** at every seed tested (**18% with the INT header padded to stock's
+42-byte layout** — the gain is fairness, not header thinness). On a **saturating k=6 fabric**
+(108 inter-pod flows, 45 switches) makespan improves **16%** with zero PFC
+([`run_scale_saturate.py`](examples/hpcc/hpcc-fs/run_scale_saturate.py)). Convergence is
+sub-millisecond and path-length-independent; an idle port's frozen fair rate is benign (the drain
+tail restores it to ≈C). Measured boundary: at extreme incast fan-in (S=64, 200 KB each) the rate
+mode leans on PFC where stock HPCC barely does — latency-critical incast classes belong on stock
+HPCC. Stock HPCC (`cc_mode 3`) is left **byte-for-byte unchanged**.
 
 **Deployment boundary (negative result).** The two modes do not share a link fairly — *even under
 a weighted-DRR 50/50 reservation* (`dwrr_weights`), because both controllers still read
