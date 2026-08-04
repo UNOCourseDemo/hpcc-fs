@@ -1034,6 +1034,7 @@ int main(int argc, char* argv[])
 			rdmaHw->SetAttribute("CcMode", UintegerValue(cc_mode));
 			rdmaHw->SetAttribute("MixFsDport", UintegerValue(cfg.get_mix_fs_dport()));
 			rdmaHw->SetAttribute("FsRcpWindow", BooleanValue(cfg.get_fs_rcp_window()));
+			rdmaHw->SetAttribute("FsMinRate", DataRateValue(DataRate(cfg.get_fs_min_rate())));
 			rdmaHw->SetAttribute("RateDecreaseInterval", DoubleValue(cfg.get_rate_decrease_interval()));
 			rdmaHw->SetAttribute("MinRate", DataRateValue(DataRate(cfg.get_min_rate())));
 			rdmaHw->SetAttribute("Mtu", UintegerValue(packet_payload_size));

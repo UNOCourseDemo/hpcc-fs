@@ -633,3 +633,25 @@ are not the oracle allocation either.
 *private explicit-rate state*: independently maintained copies preserve arrival-order asymmetry;
 a shared per-link register erases it. No impossibility claim for contractive endpoint laws
 (AIMD-style) — though the AIMD-flavored schemes measured still show 1.6–2.3×.
+
+## F14 — Round-4 corrections: the rate floor, and what fair queueing really shows (2026-08-04)
+
+**The rate floor was a real design flaw (reviewer-caught).** `HandleAckFs` clamped the adopted
+fair rate to the 1 Gb/s cold-start, so N ≤ C/1G = 25 was a hard incast bound: at S=64 every
+sender was forced above its 0.39 Gb/s fair share and PFC enforced the sharing the endpoint
+could not adopt (2,045 pauses, 142 ms cumulative). The switch-side floor was already 1 Mb/s —
+the conflation was sender-side only. Fixed with `fs_min_rate` (adopted-rate floor, default
+100 Mb/s, distinct from the cold-start): PFC = 0 through S=128, per-sender rates reach
+182 Mb/s at S=64. Residual: ~2× stock HPCC's FCT at S≥64 (convergence), while HPCC itself
+takes 64 pauses/36.5 ms at S=64. The floor never binds when fair shares exceed it: stress
+matrix, ring JCT, 20-seed ECMP, and mixed-mode gates reproduce exactly; the k=6 saturating
+makespan becomes 36.7 ms (−14%; −11% under a padded header).
+
+**Fair queueing: our round-3 inference was too strong — corrected.** Window ablations under
+per-flow equal-weight DRR (`run_round4.py`): NIC-scaled window 1.970×; **no window 0.997× —
+equal, but at ~0.9 Gb/s per flow ≈ 13.6× every flow's oracle FCT** (rates settle near the
+sender floor; the fabric idles at ~7% utilization); fixed maxBDP window 1.517×. So scheduling
+*can* equalize once the window is removed — but the equal outcome is far from the max-min
+allocation. The discriminator is the absolute oracle-relative FCT metric: 13.6× (FQ +
+windowless) vs 1.06× (shared register). The corrected claim: fair scheduling enforces
+equality; the allocation additionally needs a rate signal.

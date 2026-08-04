@@ -233,12 +233,12 @@ function chip(s, x, y, w, txt, fg, bg) {
   ], RED);
   card(5.15, "2 · Private estimates never agree", [
     { text: "RCP’s inputs (C, y, q) ARE in INT. A sender-side RCP mirror (mb_mode 6) still fails: 1.56× synced, 1.65×/0.81× staggered — direction set by arrival order.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "Private copies of the explicit-rate recursion preserve arrival-history asymmetry; ONE shared per-link register erases it. Per-flow fair queueing under stock senders: still 1.97×.", options: { fontSize: 12.5, color: MUT } },
+    { text: "Private copies of the explicit-rate recursion preserve arrival-history asymmetry; ONE shared per-link register erases it. Per-flow fair queueing: 1.97× windowed, equal-but-idle (13× oracle FCT) windowless.", options: { fontSize: 12.5, color: MUT } },
   ], RED);
   s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.35, w: 8.8, h: 0.85, fill: { color: BLUE }, rectRadius: 0.1, shadow: sh() });
   s.addText("A shared per-port register carries the history a private copy cannot replicate. That is why it belongs at the switch.", {
     x: 0.85, y: 4.42, w: 8.3, h: 0.72, fontSize: 16.5, bold: true, color: PAPER, fontFace: "Cambria", align: "center", valign: "middle" });
-  s.addNotes("Two reasons. First, at eta-hold, HPCC's multiplicative machinery goes idle — everyone holds what they grabbed. Second — and this is the paper's sharpest experiment — the obstacle is NOT information. RCP's inputs are all sender-visible in INT, so we ran the most direct sender design: a private per-hop RCP mirror. Same law, same inputs, same gains. It still fails, and the direction of unfairness flips with arrival order — because independently maintained rate state preserves arrival-history asymmetry forever, while a shared register erases it. Even per-flow fair queueing under stock senders leaves 1.97 times — a scheduler cannot give bandwidth a window-limited sender never offers. That is the placement result, scoped to explicit-rate state, and it is why RCP belongs in the switch.");
+  s.addNotes("Two reasons. First, at eta-hold, HPCC's multiplicative machinery goes idle — everyone holds what they grabbed. Second — and this is the paper's sharpest experiment — the obstacle is NOT information. RCP's inputs are all sender-visible in INT, so we ran the most direct sender design: a private per-hop RCP mirror. Same law, same inputs, same gains. It still fails, and the direction of unfairness flips with arrival order — because independently maintained rate state preserves arrival-history asymmetry forever, while a shared register erases it. Per-flow fair queueing sharpens it: windowed senders leave 1.97 times; remove the window and DRR equalizes — but at thirteen times every flow's oracle completion time, equal but idle. Scheduling enforces equality; the max-min allocation — equal shares at full utilization — also needs a rate signal telling senders how much to offer. That is the corrected placement result, and it is why the rate belongs in the switch.");
 }
 
 // ============================================================ 9 · RCP in 60s
@@ -479,8 +479,8 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Conclusion", "One field, one scalar — a coexisting fairness mode", true);
   const rows = [
     ["Diagnosis", "HPCC starves multi-bottleneck flows ~2× (3.5× small flows); breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
-    ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror — and per-flow FQ too. Private rate state keeps arrival history; a shared register erases it.", ICE],
-    ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle, zero PFC, −18–23% coflow JCT, stock path untouched.", BLUE],
+    ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror. Per-flow FQ equalizes only what senders offer: 1.97× windowed, equal-but-idle windowless.", ICE],
+    ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle (hetero cases), zero PFC, −18–23% coflow JCT, PFC-free to 128-way incast.", BLUE],
   ];
   rows.forEach((r, i) => {
     const y = 1.55 + i * 1.0;

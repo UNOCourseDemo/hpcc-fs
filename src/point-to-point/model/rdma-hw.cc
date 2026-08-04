@@ -35,6 +35,13 @@ TypeId RdmaHw::GetTypeId (void)
 				BooleanValue(false),
 				MakeBooleanAccessor(&RdmaHw::m_fsRcpWindow),
 				MakeBooleanChecker())
+		.AddAttribute ("FsMinRate",
+				"cc_mode 11: floor on the adopted fair rate (separate from the cold-start MinRate; "
+				"the advertised R must be able to fall below the startup rate or N <= C/startup "
+				"becomes a hard fan-in bound)",
+				DataRateValue(DataRate("100Mb/s")),
+				MakeDataRateAccessor(&RdmaHw::m_fsMinRate),
+				MakeDataRateChecker())
 		.AddAttribute ("MixFsDport",
 				"cc_mode 12: QPs with dport >= this value belong to the HPCC-FS class (0 = disabled)",
 				UintegerValue(0),
@@ -1407,8 +1414,8 @@ void RdmaHw::HandleAckFs(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch)
 	if (fr == 0)
 		return;
 	DataRate newrate(fr);
-	if (newrate < m_minRate)
-		newrate = m_minRate;
+	if (newrate < m_fsMinRate)
+		newrate = m_fsMinRate;
 	if (newrate > qp->m_max_rate)
 		newrate = qp->m_max_rate;
 	qp->hp.m_curRate = newrate;

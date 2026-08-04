@@ -68,18 +68,20 @@
     1.7–2.3×, TIMELY 1.8–2.0×, DCTCP 1.6–1.8×, HPCC 1.9–2.0× — growing with bottleneck count and
     robust to start-time jitter. For HPCC we localize the mechanism: a near-winner-take-all
     equilibrium in which the multi-bottleneck flow collapses to ~0.4 Gbps. Six sender-only
-    corrections fail — including a sender-side mirror of RCP driven by the same INT signals — and
-    so does per-flow fair queueing under stock senders (1.97×): the obstacle is where the rate
-    state <em>lives</em>. Private, independently maintained copies of an explicit-rate recursion
-    preserve arrival-history asymmetry indefinitely; one shared per-link register erases it.
-    Placing that register at the switch —
+    corrections fail — including a sender-side mirror of RCP driven by the same INT signals:
+    private, independently maintained copies of an explicit-rate recursion preserve
+    arrival-history asymmetry indefinitely, while one shared per-link register erases it.
+    Per-flow fair queueing equalizes only what the endpoint offers — 1.97× windowed,
+    equal-but-idle (13× oracle FCT) windowless. Placing the register at the switch —
     <strong>RDMA-RCP</strong>, an RCP service mode carried in one 64-bit INT field with three
     words of mutable state per port — restores the max-min allocation (penalty
-    <strong>≈1.005×</strong>, every flow within 5–13% of its oracle FCT) with
+    <strong>≈1.005×</strong>; flows within 5–13% of oracle FCT in the heterogeneous matrix,
+    a uniform 21–39% under three-factor compound stress) with
     <strong>zero PFC</strong> in every fairness experiment, rate-only or with a canonical
     <code>cwnd = R·RTT</code> window, and cuts a ring-collective coflow's completion time by
     <strong>18–23%</strong> at every seed tested (18% with the INT header padded to stock size);
-    on a saturating k=6 fabric, makespan improves 16%. We
+    on a saturating k=6 fabric, makespan improves 14%, and with the adopted-rate floor decoupled
+    from the cold-start (<code>fs_min_rate</code>) the mode is PFC-free through 128-way incast. We
     also measure the deployment boundary: RCP-mode and HPCC traffic do not coexist fairly on a
     shared link — even under a weighted-DRR reservation, because the classes' control signals
     remain port-global — so per-class deployment needs sliced telemetry or a separate fabric.

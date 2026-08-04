@@ -161,6 +161,10 @@ public:
 	// window from the adopted fair rate, cwnd = R * baseRTT (review-response
 	// experiment: bounded in-flight with the same fair-rate law).
 	bool m_fsRcpWindow = false;
+	// cc_mode 11: floor on the *adopted* fair rate. Deliberately separate from
+	// m_minRate (the cold-start rate): conflating them clamps every sender to
+	// the startup rate and makes N <= C/startup a hard fan-in bound.
+	DataRate m_fsMinRate;
 	bool IsFsQp(Ptr<RdmaQueuePair> qp) const { return m_mixFsDport != 0 && qp->dport >= m_mixFsDport; }
 	void UpdateRateHpPint(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react);
 };

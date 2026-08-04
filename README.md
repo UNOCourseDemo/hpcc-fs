@@ -17,12 +17,15 @@ and compounded past *N* = 4 by the original wire format's `maxHop = 5` cap.
 sender-side **mirror of the RCP recursion** driven by the same INT-visible inputs the switch would
 use (`mb_mode 6`, [`run_vrcp.py`](examples/hpcc/hpcc-fs/run_vrcp.py)): 1.56× even with synchronized
 starts, 1.65×/0.81× under staggered arrival (direction set by arrival order), while the identical
-law at the switch holds ≈1.0×. **Per-flow fair queueing under stock senders fails too** (equal-weight
-DRR at every port: still 1.97×, [`run_round3.py`](examples/hpcc/hpcc-fs/run_round3.py) — a
-work-conserving scheduler cannot allocate bandwidth a window-limited sender never offers). The
-mechanism is history: private, independently maintained explicit-rate state preserves
-arrival-order asymmetry indefinitely; one shared per-link register erases it. Empirical evidence
-about explicit-rate state placement, not a formal impossibility.
+law at the switch holds ≈1.0×. **Per-flow fair queueing equalizes only what senders offer**
+([`run_round4.py`](examples/hpcc/hpcc-fs/run_round4.py)): under the deployed windowed HPCC it
+leaves 1.97× (the NIC-scaled window underfeeds the long flow); with the window removed DRR
+equalizes (0.997×) — but at ~0.9 Gb/s per flow, **13.6× every flow's oracle FCT** (equal but
+idle). Scheduling enforces *equality*; the max-min *allocation* — equal shares at full
+utilization — also needs a rate signal telling each sender how much to offer. The mechanism is
+history: private, independently maintained explicit-rate state preserves arrival-order
+asymmetry; one shared per-link register erases it. Empirical evidence about explicit-rate state
+placement, not a formal impossibility.
 
 **Finding 3 — RDMA-RCP restores max-min.** Penalty **1.005× at *N* = 4** (flat through *N* = 6),
 across asymmetric sizes / staggered + jittered starts / ECMP hash seeds — and across heterogeneous
@@ -34,12 +37,17 @@ capacities, unequal competitor counts, overlapping multi-bottleneck flows, and c
 rate-only *or* with a canonical RCP window (`cwnd = R·baseRTT`) — and cutting a ring-collective
 coflow's JCT by **18–23%** at every seed tested (**18% with the INT header padded to stock's
 42-byte layout** — the gain is fairness, not header thinness). On a **saturating k=6 fabric**
-(108 inter-pod flows, 45 switches) makespan improves **16%** with zero PFC
-([`run_scale_saturate.py`](examples/hpcc/hpcc-fs/run_scale_saturate.py)). Convergence is
-sub-millisecond and path-length-independent; an idle port's frozen fair rate is benign (the drain
-tail restores it to ≈C). Measured boundary: at extreme incast fan-in (S=64, 200 KB each) the rate
-mode leans on PFC where stock HPCC barely does — latency-critical incast classes belong on stock
-HPCC. Stock HPCC (`cc_mode 3`) is left **byte-for-byte unchanged**.
+(108 inter-pod flows, 45 switches) makespan improves **14%** (−11% under a byte-identical
+padded header; identical ECMP placements for both schemes) with zero PFC
+([`run_round4.py`](examples/hpcc/hpcc-fs/run_round4.py)). Convergence is sub-millisecond and
+path-length-independent; an idle port's frozen fair rate is benign after naturally draining
+flows (the drain tail restores it to ≈C). **Fan-in and the rate floor:** conflating the
+adopted-rate floor with the 1 Gb/s cold-start makes N ≤ C/1G a hard bound (at S=64 incast:
+2,045 PFC pauses, 142 ms paused — floor-induced overload). With the floor decoupled
+(`fs_min_rate`, default 100 Mb/s) the mode is **PFC-free through 128-way incast**, per-sender
+rates reaching 182 Mb/s; the residual cost is ~2× stock HPCC's FCT at S≥64 — extreme fan-in
+remains stock's home turf, now gracefully. Stock HPCC (`cc_mode 3`) is left **byte-for-byte
+unchanged**.
 
 **Deployment boundary (negative result).** The two modes do not share a link fairly — *even under
 a weighted-DRR 50/50 reservation* (`dwrr_weights`), because both controllers still read
