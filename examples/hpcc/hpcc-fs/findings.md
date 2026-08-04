@@ -645,3 +645,22 @@ lottery (1.13x vs HPCC's 1.39x) but do not approach max-min — consistent with 
 private-state history argument: PowerTCP's power signal is still per-sender load telemetry,
 not a shared rate. The endemic claim now spans DCQCN, TIMELY, DCTCP, HPCC, PINT, and
 PowerTCP. Stock do-no-harm gate unchanged (1.959x).
+
+## F20 — Round-7 precision: loop-gain retraction + port validation (2026-08-04)
+
+**The fan-in N-dependence is NOT naive loop gain** (a reviewer caught our error): in the
+normalized no-delay RCP recurrence, fan-in cancels (x' = x[1+α(1−x)], x = NR/C, derivative
+1−α at equilibrium). The measured N-dependence must therefore enter through feedback delay,
+dequeue-triggered sampling, or the floor rail (whose distance to the fair share shrinks with
+N — and a lower floor measurably deepens the collapse). Open question; delay-aware analysis
+future work.
+
+**PowerTCP port validation:** inet-tub/ns3-datacenter @ 4dd55d8, law/constants verbatim;
+S=8 incast sanity 828 vs 830 µs vs stock HPCC, equal peak queue — single-bottleneck parity
+matches the reference, so the 1.79–1.86x multi-bottleneck numbers reflect the control law.
+
+**Fixed-point long-idle verified:** the shift+LUT elapsed-interval estimate covers idles to
+2^20·d; the 100 ms idle probe under Q16 reads 0.378 ms vs floating point's 0.373 ms.
+
+**Oracle renamed:** "fluid max-min reference" (ideal FCT under the max-min policy), not a
+per-flow lower bound — P_i < 1 is possible for over-served flows, by design of the metric.
