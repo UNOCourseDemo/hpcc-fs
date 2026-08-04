@@ -1,11 +1,11 @@
-# Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study (RDMA-RCP)
+# Multi-Bottleneck Fairness in RDMA Fabrics: Measurement and an Explicit-Rate Service Mode (RDMA-RCP)
 
 An empirical study of multi-bottleneck max-min fairness on lossless RDMA fabrics, and
 **RDMA-RCP** (implementation name `HPCC-FS`, `cc_mode 11`): an RCP service mode carried in *one*
-INT fair-rate field with *one* scalar of state per switch port, offered alongside byte-for-byte
-unchanged stock HPCC. All of our work lives under `examples/hpcc/hpcc-fs/`.
+INT fair-rate field with one fair-rate register (three words of state) per switch port, offered
+alongside byte-for-byte unchanged stock HPCC. All of our work lives under `examples/hpcc/hpcc-fs/`.
 
-**Finding 1 — the failure is endemic.** On a parameterized parking-lot benchmark with a fluid
+**Finding 1 — the failure spans every scheme we evaluated.** On a parameterized parking-lot benchmark with a fluid
 max-min oracle, *every* deployable RDMA CC scheme is unfair to the multi-bottleneck flow — DCQCN
 **1.70–2.32×**, TIMELY 1.83–2.01×, DCTCP 1.61–1.78×, HPCC 1.90–1.96× at *N* = 2–4 — all growing
 with bottleneck count and robust to start-time jitter
@@ -21,7 +21,10 @@ law at the switch holds ≈1.0×. Max-min needs **one shared reference rate per 
 multiplicative estimates never agree. Empirical evidence, not a formal impossibility.
 
 **Finding 3 — RDMA-RCP restores max-min.** Penalty **1.005× at *N* = 4** (flat through *N* = 6),
-across asymmetric sizes / staggered + jittered starts / ECMP hash seeds, **zero PFC**, operating
+across asymmetric sizes / staggered + jittered starts / ECMP hash seeds — and across heterogeneous
+capacities, unequal competitor counts, overlapping multi-bottleneck flows, and cross-flow churn
+(generalized unfairness 1.001–1.007×, [`run_stress_matrix.py`](examples/hpcc/hpcc-fs/run_stress_matrix.py),
+where stock reaches 1.41–2.87×) — **zero PFC**, operating
 rate-only *or* with a canonical RCP window (`cwnd = R·baseRTT`) — and cutting allreduce-style
 coflow JCT by **~21%** at every ECMP seed. Convergence is sub-millisecond and
 path-length-independent. Stock HPCC (`cc_mode 3`) is left **byte-for-byte unchanged**.
@@ -50,14 +53,16 @@ parameter sensitivity (1.004–1.008× across α, β, startup, min-rate), and an
 >   [OneDrive](https://1drv.ms/f/c/6052297178cce52b/IgAsSQ7gNfdhQrNejod27CpkAYQs8xZs4QtGc_KKVWZjQLs?e=b0mS1t);
 >   details in [`examples/hpcc/repro-verification/RESULTS.md`](examples/hpcc/repro-verification/RESULTS.md).
 
-> **⚠️ This is a refactored re-port, not a verbatim fork.** The original Alibaba HPCC simulator
-> targets a much older ns-3. This repository is a **refactor / re-port of the HPCC RDMA simulator
-> onto a tagged ns-3 release branch (ns-3.45)**, with every module ported and **re-tested** so the
-> whole tree compiles and runs correctly on modern ns-3. The
-> [reproduction](examples/hpcc/repro-verification/) confirms the re-port still matches the original
-> paper's results (and documents a correctness fix the large fat-tree required). Because it is a
-> coherent re-port rather than a patch set, **the full tree is required to build and run** — it is
-> not a drop-in onto the upstream HPCC repo.
+> **⚠️ This is the original HPCC simulator, modernized — not a re-implementation.** The original
+> Alibaba HPCC simulator targets a much older ns-3. This repository upgrades that code base to a
+> tagged modern release (**ns-3.45**) with **interface-level changes only** — build system,
+> headers, deprecated-API replacements — while the **congestion-control logic, switch datapath,
+> and wire formats are the original code** (one latent field-initialization bug, exposed only by
+> the 376-node topology, is fixed and documented). The
+> [reproduction](examples/hpcc/repro-verification/) confirms the upgraded code still matches the
+> original paper's results, so measurements here are produced by the original implementation's
+> logic. Because the upgrade is coherent across the tree, **the full tree is required to build**
+> — it is not a drop-in patch set for the upstream repo.
 
 ---
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RDMA-RCP — Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study</title>
+<title>RDMA-RCP — Multi-Bottleneck Fairness in RDMA Fabrics: Measurement and an Explicit-Rate Service Mode</title>
 <style>
   :root { --ink:#1a2330; --muted:#5b6675; --accent:#1f6feb; --line:#e3e8ef; --bg:#f7f9fc; }
   * { box-sizing:border-box; }
@@ -41,11 +41,11 @@
 <body>
 <header>
   <div class="wrap">
-    <h1>Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study
+    <h1>Multi-Bottleneck Fairness in RDMA Fabrics: Measurement and an Explicit-Rate Service Mode
         <span class="sub">RDMA-RCP — an RCP service mode over in-network telemetry (implementation name HPCC-FS)</span></h1>
     <div class="authors">Haoyu Wang<sup>1</sup> · Bo Sheng<sup>1</sup> · Zerin Shaima Meem<sup>2</sup> · Xiaoqian Zhang<sup>2</sup></div>
     <div class="affil"><sup>1</sup>University of Massachusetts Boston &nbsp;·&nbsp; <sup>2</sup>University of Nebraska Omaha</div>
-    <div class="venue">Research artifact — a refactored re-port of the Alibaba HPCC RDMA simulator onto ns-3.45, re-tested for correctness</div>
+    <div class="venue">Research artifact — the original Alibaba HPCC ns-3 simulator, upgraded to ns-3.45 (interface-level changes only; control logic unchanged), verified by reproduction</div>
     <div class="links">
       <a href="paper.pdf">📄 Paper (PDF)</a>
       <a href="slides.pdf">🎞 Slides (PDF)</a>
@@ -71,8 +71,8 @@
     including a sender-side mirror of RCP driven by the same INT signals — evidence that the
     obstacle is not information but <em>consistency</em>: max-min needs one shared reference rate
     per link, and private per-sender estimates never agree. Placing that reference at the switch —
-    <strong>RDMA-RCP</strong>, an RCP service mode carried in one 64-bit INT field with one scalar
-    of state per port — restores the max-min allocation (penalty <strong>≈1.005×</strong>) with
+    <strong>RDMA-RCP</strong>, an RCP service mode carried in one 64-bit INT field with one fair-rate register (three words of state)
+    per port — restores the max-min allocation (penalty <strong>≈1.005×</strong>) with
     <strong>zero PFC</strong>, rate-only or with a canonical <code>cwnd = R·RTT</code> window, and
     cuts allreduce-style coflow completion time by <strong>~21%</strong> at every ECMP seed. We
     also measure the deployment boundary: RCP-mode and HPCC traffic do not coexist fairly on a
@@ -97,7 +97,8 @@
 
   <section>
     <h2>Baseline reproduction (this artifact)</h2>
-    <p>Before extending HPCC we verified the refactored simulator still reproduces the original
+    <p>The simulator is the original HPCC code base upgraded to ns-3.45 (interface-level changes
+    only). Before extending it we verified the upgrade still reproduces the original
     SIGCOMM '19 results — all five congestion-control schemes × two workloads (WebSearch, FB_Hadoop)
     × three loads, on the full 376-node fat-tree. Short-flow 99th-percentile FCT slowdown:</p>
     <table>
@@ -115,8 +116,8 @@
 
   <section>
     <h2>Build &amp; reproduce</h2>
-    <p>The repository is <strong>not a verbatim fork</strong> of the original HPCC simulator — it is a
-    refactored re-port of the HPCC RDMA simulator onto a tagged <strong>ns-3.45</strong> release branch,
+    <p>The repository is the <strong>original HPCC simulator, modernized</strong>: the code base is
+    upgraded to a tagged <strong>ns-3.45</strong> release with interface-level changes only,
     with every module re-tested so the whole tree compiles and runs on modern ns-3. The full tree is
     therefore required to build and run (it is not a drop-in patch on the upstream repo). Quick start:</p>
     <pre style="background:#eef1f6;padding:14px;border-radius:8px;overflow:auto;font-size:.85rem"><code># build the optimized binary
