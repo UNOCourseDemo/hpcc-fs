@@ -675,3 +675,12 @@ done_pred(i)^k), 30 phases, full-history replay. Pipelined: HPCC 44.06 ms, RDMA-
 edge throttles the pipeline's steady-state rate either way. Also corrected a stale fixed-point
 claim: the 2-bit-mantissa elapsed-interval LUT bounds reciprocal error at 25% (the "2x" figure
 described an earlier pure-shift design).
+
+## F22 — Full-collective header control + seed robustness (2026-08-04)
+
+The pipelined 30-phase ring allreduce holds under both controls a reviewer could demand:
+**17.0% with the RCP class padded to stock's 42-byte INT layout** (36.58 vs 44.06 ms; vs
+21.1% at 8 B — telemetry size explains ~4 points, fairness the rest), and **20.2–21.6%
+across three ECMP placements** (`run_round11.py`). Combined with per-rank pipeline semantics
+(F21), the full-collective headline survives synchronization-model, header-size, and
+placement scrutiny.
