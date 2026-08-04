@@ -664,3 +664,14 @@ matches the reference, so the 1.79–1.86x multi-bottleneck numbers reflect the 
 
 **Oracle renamed:** "fluid max-min reference" (ideal FCT under the max-min policy), not a
 per-flow lower bound — P_i < 1 is possible for over-served flows, by design of the metric.
+
+## F21 — Pipelined ring vs barriers: the 21% is synchronization-robust (2026-08-04)
+
+A reviewer asked whether global phase barriers inflate the full-allreduce gain (barriers turn
+every local straggler into a fabric-wide stall — exactly what RDMA-RCP fixes). Implemented
+true per-rank ring dependencies (`run_round10.py`): start_i^{k+1} = max(done_i^k,
+done_pred(i)^k), 30 phases, full-history replay. Pipelined: HPCC 44.06 ms, RDMA-RCP 34.76 ms
+= **21.1%** vs 21.9% barriered. The gain is robust to the synchronization model: a slow ring
+edge throttles the pipeline's steady-state rate either way. Also corrected a stale fixed-point
+claim: the 2-bit-mantissa elapsed-interval LUT bounds reciprocal error at 25% (the "2x" figure
+described an earlier pure-shift design).
