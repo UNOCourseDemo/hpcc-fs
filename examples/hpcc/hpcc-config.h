@@ -102,6 +102,7 @@ class HpccConfig {
     uint32_t get_mix_fs_dport() const { return mix_fs_dport; }
     bool get_fs_rcp_window() const { return fs_rcp_window; }
     const std::map<uint32_t,double>& get_dwrr_weights() const { return dwrr_weights; }
+    double get_fs_d_scale() const { return fs_d_scale; }
     bool get_fs_disable_window() const { return fs_disable_window; }
     double get_pint_log_base() const { return pint_log_base; }
     double get_pint_prob() const { return pint_prob; }
@@ -199,6 +200,7 @@ class HpccConfig {
     uint32_t mix_fs_dport = 0;        // cc_mode 12: flows with dport >= this are the HPCC-FS class (0 = off)
     bool fs_rcp_window = false;       // cc_mode 11: window = R*baseRTT (canonical RCP endpoint)
     std::map<uint32_t,double> dwrr_weights; // per-queue DWRR weights at switch egress (empty = stock RR)
+    double fs_d_scale = 1.0;          // cc_mode 11: scale RCP control interval d
     bool fs_disable_window = true;    // FS mode is rate-only (no per-flow window cap)
     double pint_log_base = 1.05;
     double pint_prob = 1.0;

@@ -71,6 +71,7 @@ void HpccConfig::loadFromYaml(const std::string& filename) {
     if (config["ecmp_seed_offset"]) ecmp_seed_offset = config["ecmp_seed_offset"].as<uint32_t>();
     if (config["mix_fs_dport"])     mix_fs_dport = config["mix_fs_dport"].as<uint32_t>();
     if (config["fs_rcp_window"])    fs_rcp_window = config["fs_rcp_window"].as<bool>();
+    if (config["fs_d_scale"])       fs_d_scale = config["fs_d_scale"].as<double>();
     if (config["dwrr_weights"])
         for (auto it : config["dwrr_weights"])
             dwrr_weights[it.first.as<uint32_t>()] = it.second.as<double>();

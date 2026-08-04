@@ -1113,6 +1113,7 @@ int main(int argc, char* argv[])
 			sw->SetAttribute("FsAlpha", DoubleValue(cfg.get_fs_alpha()));
 			sw->SetAttribute("FsBeta", DoubleValue(cfg.get_fs_beta()));
 			sw->SetAttribute("FsInitFrac", DoubleValue(cfg.get_fs_init_frac()));
+			sw->SetAttribute("FsDScale", DoubleValue(cfg.get_fs_d_scale()));
 		}
 	}
 

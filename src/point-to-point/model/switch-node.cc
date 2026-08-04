@@ -58,6 +58,11 @@ TypeId SwitchNode::GetTypeId (void)
 			DoubleValue(0.5),
 			MakeDoubleAccessor(&SwitchNode::m_fsInitFrac),
 			MakeDoubleChecker<double>())
+	.AddAttribute("FsDScale",
+			"cc_mode 11: multiply the RCP control interval d by this factor (default 1.0)",
+			DoubleValue(1.0),
+			MakeDoubleAccessor(&SwitchNode::m_fsDScale),
+			MakeDoubleChecker<double>())
 	.AddAttribute("MixFsDport",
 			"cc_mode 12: UDP dport >= this value marks the HPCC-FS traffic class (0 = disabled)",
 			UintegerValue(0),
@@ -90,6 +95,7 @@ SwitchNode::SwitchNode(){
 	m_fsBeta = 0.226;
 	m_fsInitFrac = 0.5;
 	m_mixFsDport = 0;
+	m_fsDScale = 1.0;
 }
 
 int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
@@ -360,8 +366,9 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 				}
 				uint64_t nowts = Simulator::Now().GetTimeStep();
 				uint64_t rdt = nowts - m_rcpLastTs[ifIndex];
-				if (rdt >= m_maxRtt && rdt > 0){ // recompute fair rate once per control interval (~RTT)
-					double d_s = m_maxRtt * 1e-9;
+				uint64_t dEff = (uint64_t)(m_maxRtt * m_fsDScale); // robustness knob, default = m_maxRtt
+				if (rdt >= dEff && rdt > 0){ // recompute fair rate once per control interval (~RTT)
+					double d_s = dEff * 1e-9;
 					double dt_s = rdt * 1e-9;
 					double y = (double)(m_txBytes[ifIndex] - m_rcpLastBytes[ifIndex]) * 8.0 / dt_s; // bits/s
 					double q = (double)dev->GetQueue()->GetNBytesTotal(); // bytes

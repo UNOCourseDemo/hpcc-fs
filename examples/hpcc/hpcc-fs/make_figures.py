@@ -107,7 +107,7 @@ def fig_nsweep():
     width = 0.27
     ax.bar(x - width, stock, width, label="stock HPCC", color="#C0504D")
     ax.bar(x,         multi, width, label="multi-rate HPCC", color="#9BBB59")
-    ax.bar(x + width, hpcc_fs, width, label="HPCC-FS (this paper)", color="#4F81BD")
+    ax.bar(x + width, hpcc_fs, width, label="RDMA-RCP (this paper)", color="#4F81BD")
     ax.axhline(1.0, linestyle="--", color="gray", linewidth=0.8, label="max-min oracle")
     ax.text(3.0, 0.55, "INT overflow\n(maxHop=5)", ha="center", fontsize=8,
             color="#7A1B17", style="italic")
@@ -148,7 +148,7 @@ def fig_robustness():
     y = np.arange(len(labels))
     h = 0.36
     ax.barh(y + h/2, stock_v, h, label="stock HPCC", color="#C0504D")
-    ax.barh(y - h/2, fs_v,    h, label="HPCC-FS",    color="#4F81BD")
+    ax.barh(y - h/2, fs_v,    h, label="RDMA-RCP",    color="#4F81BD")
     ax.axvline(1.0, linestyle="--", color="gray", linewidth=0.8, label="oracle = 1.0")
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=9)
@@ -239,7 +239,7 @@ def fig_rate_trace():
     long_key = (5, 6)  # long flow at N=4
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.4), sharey=True)
     _plot_trace(axes[0], s_flows, s_t, long_key, "Stock HPCC: winner-take-all collapse")
-    _plot_trace(axes[1], f_flows, f_t, long_key, "HPCC-FS: converges to fair share in ~4 ms")
+    _plot_trace(axes[1], f_flows, f_t, long_key, "RDMA-RCP: within 5% of fair share in ~0.6 ms")
     fig.tight_layout()
     out = os.path.join(FIG_DIR, "fig_rate_trace.png")
     fig.savefig(out, dpi=160)
@@ -272,12 +272,12 @@ def fig_topology():
     x = np.arange(len(topos))
     width = 0.36
     ax.bar(x - width/2, stock, width, label="stock HPCC", color="#C0504D")
-    ax.bar(x + width/2, fs,    width, label="HPCC-FS",    color="#4F81BD")
+    ax.bar(x + width/2, fs,    width, label="RDMA-RCP",    color="#4F81BD")
     ax.axhline(1.0, linestyle="--", color="gray", linewidth=0.8, label="oracle = 1.0")
     ax.set_xticks(x)
     ax.set_xticklabels(topos, fontsize=9)
     ax.set_ylabel("relative penalty (long/short)")
-    ax.set_title("HPCC-FS generalizes across topology families")
+    ax.set_title("RDMA-RCP generalizes across topology families")
     ax.set_ylim(0, 2.3)
     ax.grid(axis="y", linestyle=":", alpha=0.5)
     ax.legend(loc="upper right", fontsize=8, framealpha=0.95)
