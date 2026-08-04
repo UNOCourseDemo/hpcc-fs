@@ -291,7 +291,7 @@ void RdmaHw::AddQueuePair(
 	qp->m_max_rate = m_bps;
 	if (m_cc_mode == 1){
 		qp->mlx.m_targetRate = m_bps;
-	}else if (m_cc_mode == 3){
+	}else if (m_cc_mode == 3 || m_cc_mode == 13){
 		qp->hp.m_curRate = m_bps;
 		if (m_multipleRate){
 			for (uint32_t i = 0; i < IntHeader::maxHop; i++)
@@ -462,7 +462,7 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch){
 		qp->m_rate = dev->GetDataRate();
 		if (m_cc_mode == 1){
 			qp->mlx.m_targetRate = dev->GetDataRate();
-		}else if (m_cc_mode == 3){
+		}else if (m_cc_mode == 3 || m_cc_mode == 13){
 			qp->hp.m_curRate = dev->GetDataRate();
 			if (m_multipleRate){
 				for (uint32_t i = 0; i < IntHeader::maxHop; i++)
@@ -544,6 +544,8 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 			HandleAckFs(qp, p, ch);
 		else
 			HandleAckHp(qp, p, ch);
+	}else if (m_cc_mode == 13){
+		HandleAckPower(qp, p, ch);
 	}
 	// ACK may advance the on-the-fly window, allowing more packets to send
 	dev->TriggerTransmit();
@@ -1266,6 +1268,75 @@ void RdmaHw::UpdateRateHp(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch
 void RdmaHw::FastReactHp(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch){
 	if (m_fast_react)
 		UpdateRateHp(qp, p, ch, true);
+}
+
+/**********************
+ * PowerTCP (INT variant), cc_mode 13 --- ported from the authors' reference
+ * implementation (inet-tub/ns3-datacenter). Per-hop normalized power
+ * u = A * (qlen*8 + B*baseRtt) / B^2*baseRtt with A = max(rxRate, B/2);
+ * EWMA over the max hop; rate = 0.9*(cur/max_c + 150 Mb/s) + 0.1*cur with
+ * max_c = u / eta. Reference constants (0.9 EWMA, 150 Mb/s AI) kept verbatim.
+ *********************/
+void RdmaHw::HandleAckPower(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch){
+	uint32_t ack_seq = ch.ack.seq;
+	if (ack_seq > qp->hp.m_lastUpdateSeq){ // full RTT feedback ready
+		UpdateRatePower(qp, p, ch, false);
+	}else if (m_fast_react){
+		UpdateRatePower(qp, p, ch, true);
+	}
+}
+void RdmaHw::UpdateRatePower(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react){
+	uint32_t next_seq = qp->snd_nxt;
+	IntHeader &ih = ch.ack.ih;
+	if (ih.nhop > IntHeader::maxHop)
+		return;
+	double U = 0;
+	uint64_t dt = 0;
+	bool updated_any = false;
+	for (uint32_t i = 0; i < ih.nhop; i++){
+		if (m_sampleFeedback){
+			if (ih.hop[i].GetQlen() == 0 && fast_react)
+				continue;
+		}
+		updated_any = true;
+		uint64_t tau = ih.hop[i].GetTimeDelta(qp->hp.hop[i]);
+		double duration = tau * 1e-9;
+		double rxRate = (ih.hop[i].GetBytesDelta(qp->hp.hop[i])) * 8.0 / duration;
+		double A = rxRate;
+		if (A < ih.hop[i].GetLineRate() * 0.5)
+			A = ih.hop[i].GetLineRate() * 0.5;
+		// Power = (arrival rate) * (queue length + bandwidth * baseRtt), normalized
+		double power = A * ((double)(ih.hop[i].GetQlen() * 8.0)
+		                    + ih.hop[i].GetLineRate() * (qp->m_baseRtt * 1e-9));
+		double u = power / (ih.hop[i].GetLineRate()
+		                    * (ih.hop[i].GetLineRate() * qp->m_baseRtt * 1e-9));
+		if (u > U){
+			U = u;
+			dt = tau;
+		}
+		qp->hp.hop[i] = ih.hop[i];
+	}
+	if (updated_any){
+		if (dt > qp->m_baseRtt)
+			dt = qp->m_baseRtt;
+		if (U < 0)
+			U = qp->hp.u;
+		qp->hp.u = (qp->hp.u * (1.0 * qp->m_baseRtt - dt) + U * dt) / (double)(1.0 * qp->m_baseRtt);
+		double max_c = qp->hp.u / m_targetUtil;
+		DataRate mi = qp->hp.m_curRate * (1.0 / max_c) + DataRate("150Mb/s");
+		DataRate new_rate((uint64_t)(0.9 * mi.GetBitRate() + 0.1 * qp->hp.m_curRate.GetBitRate()));
+		if (new_rate < m_minRate)
+			new_rate = m_minRate;
+		if (new_rate > qp->m_max_rate)
+			new_rate = qp->m_max_rate;
+		ChangeRate(qp, new_rate);
+		if (!fast_react)
+			qp->hp.m_curRate = new_rate;
+	}
+	if (!fast_react){
+		if (next_seq > qp->hp.m_lastUpdateSeq)
+			qp->hp.m_lastUpdateSeq = next_seq;
+	}
 }
 
 /**********************

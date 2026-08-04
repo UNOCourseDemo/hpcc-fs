@@ -793,7 +793,7 @@ int main(int argc, char* argv[])
 	uint32_t cc_mode = cfg.get_cc_mode();
 	if (cc_mode == 7)
 		IntHeader::mode = IntHeader::TS;
-	else if (cc_mode == 3)
+	else if (cc_mode == 3 || cc_mode == 13)
 		IntHeader::mode = IntHeader::NORMAL;
 	else if (cc_mode == 10)
 		IntHeader::mode = IntHeader::PINT;

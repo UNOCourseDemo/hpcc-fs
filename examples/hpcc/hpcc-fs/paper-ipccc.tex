@@ -36,7 +36,7 @@ Congestion Control and an RCP Service Mode over In-Network Telemetry}
 Deployable RDMA congestion control is evaluated almost exclusively on single-bottleneck
 benchmarks, while datacenter traffic increasingly crosses several contended links in series.
 We measure multi-bottleneck fairness on lossless RDMA fabrics and find that every scheme we
-evaluate --- DCQCN, TIMELY, DCTCP, HPCC --- is unfair to the multi-bottleneck flow
+evaluate --- DCQCN, TIMELY, DCTCP, HPCC, PowerTCP --- is unfair to the multi-bottleneck flow
 ($1.6$--$2.3\times$ against a fluid max-min bound), HPCC's instance a stable
 near-winner-take-all collapse. Controlled experiments isolate the cause: independently
 maintained copies of an explicit-rate recursion preserve arrival-history asymmetry, while the
@@ -88,8 +88,8 @@ the original HPCC implementation's logic, not a re-implementation. Our findings:
 \item \textbf{The failure spans every scheme we evaluate, and we characterize HPCC's instance}
 (\S\ref{sec:bg}, \S\ref{sec:endemic}). Every deployable scheme we test is unfair to the
 multi-bottleneck flow --- DCQCN $1.70$--$2.32\times$, TIMELY $1.83$--$2.01\times$, DCTCP
-$1.61$--$1.78\times$, HPCC $1.90$--$1.96\times$ at $N = 2$--$4$ --- all growing with bottleneck
-count, and robust to start-time jitter. For HPCC we isolate the mechanism: the failure is
+$1.61$--$1.78\times$, HPCC $1.90$--$1.96\times$, PowerTCP $1.79$--$1.86\times$ at
+$N = 2$--$4$ --- all growing with bottleneck count, and robust to start-time jitter. For HPCC we isolate the mechanism: the failure is
 \emph{near-winner-take-all} (the long flow collapses to ${\sim}0.4$ Gbps against ${\sim}23$ Gbps
 competitors; $3.5\times$ for small flows), RTT-independent, immune to HPCC's multi-rate mode
 and PINT compression, and compounded past four bottlenecks by the $\texttt{maxHop}=5$ wire
@@ -260,9 +260,9 @@ $C$, $y$, $q$ (identical rule and gains, $R_0 = C/2$, its base RTT as interval),
 $\min_i \hat R_i$. The real stack adds per-flow sampling and feedback-delay asymmetry beyond
 the fluid model's arrival asymmetry --- why the mirror falls short even synchronized.
 
-The mirror reaches only $1.560\times$ synchronized and $1.654\times$/$0.813\times$ with
-the long/cross side arriving $5$ ms late (direction set by arrival order), while the identical
-law at the switch holds $1.003$--$1.008\times$ throughout.
+The mirror reaches only $1.560\times$ synchronized, $1.654$/$0.813\times$ with the
+long/cross side $5$ ms late (direction set by arrival order); the identical law at the switch
+holds $1.003$--$1.008\times$.
 
 \subsection{The structural reason: consistency, not information}
 
@@ -423,8 +423,8 @@ conservative for our claim. Both gates hold
 
 \paragraph{Coexistence is not free (negative result).}
 On the $N{=}4$ parking lot with the long flow in the RCP class and the crosses in the stock
-class, \emph{neither class gets its fair share}: rate-only RCP overshoots ($21.6$ vs $12.5$ Gbps
-fair, stock squeezed to $11.1$; $0.51\times$), the windowed variant
+class, \emph{neither class gets its fair share}: rate-only RCP overshoots ($21.6$ vs $12.5$ G
+fair; $0.51\times$), the windowed variant
 under-shoots ($6.2$ Gbps, $2.53\times$), and a separate priority queue does not help (HPCC's queue stays near zero; it forfeits its
 turns) --- non-compliant flows are invisible to $R$'s inference exactly as flow count is
 invisible to a sender.
@@ -447,7 +447,7 @@ $C$, $y$, $q$ --- true slicing) or a separate fabric. All variants ship with the
 All experiments use the deterministic parking-lot benchmark of \S\ref{sec:bg}, driven by our
 \texttt{hpcc-validation.cc}. Flows are 50 MB unless noted; sim time is 200 ms; the optimized
 binary is used throughout. We compare against stock HPCC (\texttt{cc\_mode 3}), stock HPCC
-multi-rate, and HPCC-PINT. The simulator is the original HPCC ns-3 code base upgraded to a tagged ns-3.45
+multi-rate, HPCC-PINT, and PowerTCP (\texttt{cc\_mode 13}). The simulator is the original HPCC ns-3 code base upgraded to a tagged ns-3.45
 release --- interface-level changes only; control logic and wire formats unchanged --- verified
 by reproducing the original paper's baseline comparisons (HPCC vs.\ DCQCN, TIMELY, DCTCP, and
 PINT across WebSearch
@@ -482,11 +482,11 @@ across the entire sweep; stock and multi-rate HPCC fail at $N \le 4$ and break a
 
 Stock and multi-rate HPCC are starved across $N = 2$--$4$ (penalty $1.90$--$1.96\times$ for stock,
 $1.44$--$1.75\times$ for multi-rate), then break entirely at $N \ge 5$, where the per-hop INT
-record overflows the \texttt{maxHop} cap (the apparent $0.51\times$ there is the overflow artifact,
-not a real allocation). \hpccfs is flat at $1.003$--$1.007\times$ across the entire sweep --- its one-field format
+record overflows the \texttt{maxHop} cap (the apparent $0.51\times$ is the overflow
+artifact). \hpccfs is flat at $1.003$--$1.007\times$ across the entire sweep --- its one-field format
 does not grow with path length. HPCC-PINT, carrying one compressed utilization field, inherits load-based control and still
 suffers ${\sim}1.8\times$ ($1.77$--$1.88\times$) --- the fix requires a fair-share signal,
-not a smaller INT footprint. All \hpccfs runs have zero PFC events.
+not a smaller INT footprint. All \hpccfs runs here have zero PFC.
 
 \subsection{The failure spans our evaluated stack}
 \label{sec:endemic}
@@ -496,9 +496,13 @@ benchmark with harness parity (window-based schemes keep their window; DCQCN, TI
 run windowless per their reference configurations --- DCTCP as a datacenter-TCP baseline, not
 an RDMA scheme). Table~\ref{tab:endemic}: every scheme \emph{in our evaluated stack} is unfair to the
 multi-bottleneck flow and worsens with bottleneck count --- DCQCN worst at $N{=}4$
-($2.32\times$). HPCC is the norm here, not an outlier; only the RCP mode reaches max-min, and only HPCC and
-the RCP mode hold zero PFC. Untested controllers (PowerTCP, Bolt, On-Ramp, Swift) are outside
-the claim; a same-benchmark comparison is future work.
+($2.32\times$). HPCC is the norm here, not an outlier. The gap covers the post-HPCC generation:
+PowerTCP~\cite{addanki2022powertcp}, ported from the authors' reference implementation
+(itself built on this HPCC simulator; INT variant, reference constants), shows
+$1.79$--$1.86\times$, growing with $N$, PFC 0 --- its EWMA/additive term softens the
+$N{=}1$ lottery ($1.13$ vs $1.39\times$) without approaching max-min
+(\texttt{run\_round9.py}). Only the RCP mode reaches max-min. Untested controllers (Bolt,
+On-Ramp, Swift) are outside the claim.
 
 \begin{table}[t]
 \caption{Unfairness ratio and PFC pauses on the parking lot: every \emph{evaluated} scheme
@@ -513,6 +517,7 @@ DCQCN & $1.70\times$ & $1.90\times$ & $2.32\times$ & 6--34 \\
 TIMELY & $1.83\times$ & $1.96\times$ & $2.01\times$ & 72--156 \\
 DCTCP & $1.61\times$ & $1.72\times$ & $1.78\times$ & 256--280 \\
 HPCC & $1.90\times$ & $1.92\times$ & $1.96\times$ & 0 \\
+PowerTCP & $1.79\times$ & $1.85\times$ & $1.86\times$ & 0 \\
 \hpccfs & $\mathbf{1.003\times}$ & $\mathbf{1.003\times}$ & $\mathbf{1.005\times}$ & 0 \\
 \bottomrule
 \end{tabular}
@@ -881,7 +886,7 @@ wire field carries bps): register units, not arithmetic width, were the binding 
 Tofino prototype remains future work.
 
 \paragraph{Limitations.} Three topology families; in-sim baselines only (DCQCN, TIMELY, DCTCP,
-multi-rate HPCC, PINT) --- no Bolt/PowerTCP, no testbed; the in-order per-QP ACK assumption
+multi-rate HPCC, PINT, PowerTCP) --- no Bolt, no testbed; the in-order per-QP ACK assumption
 (\S\ref{sec:design}) holds in the evaluated stack but reordering multipath would need an
 epoch field; per-class
 coexistence requires link or telemetry isolation we do not design (\S\ref{sec:integration}); the ECMP study is

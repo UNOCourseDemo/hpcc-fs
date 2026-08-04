@@ -127,6 +127,11 @@ public:
 	uint32_t m_mbMode;  // 0=off, 1=k-aware AI
 	double m_mbGamma;   // correction strength: RateAI_eff = gamma * k * RateAI for k>=2
 	void HandleAckHp(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch);
+	// cc_mode 13: PowerTCP (INT variant), ported from the authors' reference
+	// implementation (inet-tub/ns3-datacenter, ns-3.39 rdma-hw.cc); reuses the
+	// HPCC per-hop INT record and qp->hp state.
+	void HandleAckPower(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch);
+	void UpdateRatePower(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react);
 	void UpdateRateHp(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react);
 	void UpdateRateHpTest(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch, bool fast_react);
 	void FastReactHp(Ptr<RdmaQueuePair> qp, Ptr<Packet> p, CustomHeader &ch);

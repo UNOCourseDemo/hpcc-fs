@@ -6,8 +6,10 @@ INT fair-rate field with three words of mutable state per switch port, offered
 alongside byte-for-byte unchanged stock HPCC. All of our work lives under `examples/hpcc/hpcc-fs/`.
 
 **Finding 1 — the failure spans every scheme we evaluated.** On a parameterized parking-lot benchmark with a fluid
-max-min oracle, *every* deployable RDMA CC scheme is unfair to the multi-bottleneck flow — DCQCN
-**1.70–2.32×**, TIMELY 1.83–2.01×, DCTCP 1.61–1.78×, HPCC 1.90–1.96× at *N* = 2–4 — all growing
+max-min oracle, *every* scheme we evaluate is unfair to the multi-bottleneck flow — DCQCN
+**1.70–2.32×**, TIMELY 1.83–2.01×, DCTCP 1.61–1.78×, HPCC 1.90–1.96×, **PowerTCP (NSDI'22)
+1.79–1.86×** (cc_mode 13, ported from the authors' reference implementation,
+[`run_round9.py`](examples/hpcc/hpcc-fs/run_round9.py)) at *N* = 2–4 — all growing
 with bottleneck count and robust to start-time jitter
 ([`run_cc_baselines.py`](examples/hpcc/hpcc-fs/run_cc_baselines.py)). HPCC's instance is
 **near-winner-take-all** (the long flow collapses to ~0.4 Gbps; 3.5× for small flows), RTT-independent,

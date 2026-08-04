@@ -634,3 +634,14 @@ lengthening d is gain reduction.
 **Full ring allreduce, all 2(N-1) = 30 phases**, barrier-chained with controller state
 carried: 45.0 -> 35.2 ms end to end — a 21.9% full-collective gain; RDMA-RCP's thirty phase
 JCTs sit in [1.17, 1.19] ms while stock's redraw a startup lottery in [1.44, 1.56] ms; PFC 0.
+
+## F19 — PowerTCP shows the gap too (2026-08-04)
+
+cc_mode 13: PowerTCP (NSDI'22), INT variant, ported from the authors' reference
+implementation (their artifact is itself built on this HPCC simulator; reference constants
+kept verbatim). Parking lot: **1.79 / 1.85 / 1.86x at N = 2/3/4**, growing with bottleneck
+count, PFC 0 (`run_round9.py`). The EWMA + 150 Mb/s additive term soften the N=1 arrival
+lottery (1.13x vs HPCC's 1.39x) but do not approach max-min — consistent with the
+private-state history argument: PowerTCP's power signal is still per-sender load telemetry,
+not a shared rate. The endemic claim now spans DCQCN, TIMELY, DCTCP, HPCC, PINT, and
+PowerTCP. Stock do-no-harm gate unchanged (1.959x).
