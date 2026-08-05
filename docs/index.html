@@ -62,35 +62,20 @@
 
   <section>
     <h2>Abstract</h2>
-    <p class="abstract">Modern datacenter traffic increasingly crosses several contended links in
-    series, yet deployable RDMA congestion control is evaluated almost exclusively on
-    single-bottleneck benchmarks. We present an empirical study of multi-bottleneck fairness on
-    lossless RDMA fabrics. On a parameterized parking-lot benchmark with a fluid max-min oracle,
-    <em>every</em> scheme we evaluate is unfair to the multi-bottleneck flow — DCQCN
-    1.7–2.3×, TIMELY 1.8–2.0×, DCTCP 1.6–1.8×, HPCC 1.9–2.0×, PowerTCP (NSDI'22) 1.8–1.9× —
-    growing with bottleneck count and robust to start-time jitter. For HPCC we localize the mechanism: a near-winner-take-all
-    equilibrium in which the multi-bottleneck flow collapses to ~0.4 Gbps. Six sender-only
-    corrections fail — including a sender-side mirror of RCP driven by the same INT signals:
-    private, independently maintained copies of an explicit-rate recursion preserve
-    arrival-history asymmetry indefinitely, while one shared per-link register erases it.
-    Per-flow fair queueing equalizes only what the endpoint offers — 1.97× windowed,
-    equal-but-idle (13× oracle FCT) windowless. Placing the register at the switch —
-    <strong>RDMA-RCP</strong>, an RCP service mode carried in one 64-bit INT field with three
-    words of mutable state per port — restores the max-min allocation (penalty
-    <strong>≈1.005×</strong>; flows within 5–13% of oracle FCT in the heterogeneous matrix,
-    a uniform 21–39% under three-factor compound stress) with
-    <strong>zero PFC</strong> in every fairness experiment, rate-only or with a canonical
-    <code>cwnd = R·RTT</code> window, and cuts a ring-collective coflow's completion time by
-    <strong>18–23%</strong> at every seed tested (18% with the INT header padded to stock size);
-    on a saturating k=6 fabric, makespan improves 14%. We equally measure where the mode does not
-    belong: it cannot share an unsliced link with stock HPCC, and fan-in past ~64 needs a lengthened
-    control interval (25–50% utilization at the default; 84–94% at 2–4×d), with feasible
-    fan-in bounded at C/R<sub>floor</sub>; a Q16 fixed-point switch update reproduces the
-    headline results. We
-    also measure the deployment boundary: RCP-mode and HPCC traffic do not coexist fairly on a
-    shared link — even under a weighted-DRR reservation, because the classes' control signals
-    remain port-global — so per-class deployment needs sliced telemetry or a separate fabric.
-    Stock HPCC remains byte-for-byte unchanged alongside.</p>
+    <p class="abstract">Deployable RDMA congestion control is evaluated almost exclusively on
+    single-bottleneck benchmarks, while datacenter traffic increasingly crosses several contended
+    links in series. We measure multi-bottleneck fairness on lossless RDMA fabrics and find that
+    every scheme we evaluate — DCQCN, TIMELY, DCTCP, HPCC, PowerTCP — is unfair to the
+    multi-bottleneck flow (1.6–2.3× against a fluid max-min reference), HPCC's instance a stable
+    near-winner-take-all collapse. Rate traces identify an η-hold state in HPCC that freezes
+    startup asymmetry; a controlled experiment shows why sender-side reconstruction of an explicit
+    fair rate cannot repair it: independently initialized rate recursions preserve history, while
+    one shared per-link register erases it. Carrying that register's value in a single 64-bit INT
+    field (RDMA-RCP, three words of state per port) restores the max-min <em>relative</em>
+    allocation (1.005×, zero PFC) and cuts a ring-collective coflow's completion time by 18–23%.
+    We equally measure the boundaries: mixed HPCC/RCP traffic requires telemetry isolation, and
+    high fan-in requires a lengthened control interval. Stock HPCC's control logic and wire format
+    are unchanged; its regression outputs are byte-identical to the pre-RDMA-RCP baseline.</p>
   </section>
 
   <section>
