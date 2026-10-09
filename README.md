@@ -71,7 +71,7 @@ parameter sensitivity (1.004–1.008× across α, β, startup, min-rate), and an
 
 > **📦 Artifact-review repository.** A self-contained, buildable snapshot of the HPCC-FS ns-3
 > simulator.
-> - **Status:** under review — submitted to **IEEE IPCCC 2026** (August 2026).
+> - **Status:** accepted — to appear in the proceedings of **IEEE IPCCC 2026** (regular paper; Austin, TX, November 2026).
 > - **Paper:** [`examples/hpcc/hpcc-fs/paper.pdf`](examples/hpcc/hpcc-fs/paper.pdf)
 >   · submitted IEEE-format version: [`paper-ipccc.pdf`](examples/hpcc/hpcc-fs/paper-ipccc.pdf)
 > - **Slides:** [`examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pptx`](examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pptx)
