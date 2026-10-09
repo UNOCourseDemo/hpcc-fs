@@ -461,9 +461,9 @@ release --- interface-level changes only; control logic and wire formats unchang
 by reproducing the original paper's baseline comparisons (HPCC vs.\ DCQCN, TIMELY, DCTCP, and
 PINT across WebSearch
 and FB-Hadoop workloads at 30--70\% load on a 320-server fat-tree). The full reproduction record ships with the artifact,\footnote{Record:
-\url{https://github.com/UNOCourseDemo/hpcc-fs/tree/main/examples/hpcc/repro-verification}.
+\texttt{examples/hpcc/repro-verification} in the artifact repository.
 Raw results (554\,MB):
-\url{https://1drv.ms/f/c/6052297178cce52b/IgAsSQ7gNfdhQrNejod27CpkAYQs8xZs4QtGc_KKVWZjQLs}.}
+\url{https://doi.org/10.5281/zenodo.23271137}, mirrored as GitHub release \texttt{data-v1}.}
 and its verdict is that the upgraded code matches the original paper's central findings.
 Metrics, used consistently below: \emph{unfairness ratio} = long-flow FCT / mean cross-flow
 FCT (oracle $=1.0$); \emph{oracle-relative FCT} $P_i$ = per-flow FCT / oracle FCT ($P_i < 1$: the flow took
