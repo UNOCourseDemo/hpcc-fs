@@ -83,5 +83,5 @@ repro-verification/
 ```
 
 The raw per-flow outputs are gitignored; the **public archive** — each run's `config.yml` + final
-results (`fct`/`pfc`/`bottleneck`/`qlen`), 554 MB zstd, no per-run logs — is archived on Zenodo:
-<https://doi.org/10.5281/zenodo.23271137>
+results (`fct`/`pfc`/`bottleneck`/`qlen`), 554 MB zstd, no per-run logs — is archived on Figshare:
+<https://doi.org/10.6084/m9.figshare.34330836>

@@ -13,8 +13,8 @@ the FCT / queue / PFC behavior matches the paper's qualitative story. Raw per-fl
   identical across VMs (one unseeded draw per workload/load, shared by all 5 schemes).
 - Metric: **FCT slowdown = fct / standalone_fct** per flow; "short flow" = <3 KB (ws) / <120 KB (fb).
 - **Public archive:** each run's configuration + final results (`config.yml` + `fct`/`pfc`/
-  `bottleneck`/`qlen`; 554 MB zstd → 2.2 GB; per-run `sim.log` logs excluded) are archived on Zenodo —
-  <https://doi.org/10.5281/zenodo.23271137>
+  `bottleneck`/`qlen`; 554 MB zstd → 2.2 GB; per-run `sim.log` logs excluded) are archived on Figshare —
+  <https://doi.org/10.6084/m9.figshare.34330836>
   (extract: `zstd -dc hpcc_repro_results.tar.zst | tar xf -`).
 
 ## Headline: FCT slowdown + queue + PFC

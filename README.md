@@ -80,7 +80,7 @@ parameter sensitivity (1.004–1.008× across α, β, startup, min-rate), and an
 >   376-node fat-tree): [`examples/hpcc/repro-verification/`](examples/hpcc/repro-verification/)
 > - **Simulation results** (per-run `config.yml` + final outputs `fct`/`pfc`/`bottleneck`/`qlen`,
 >   554 MB zstd, no per-run logs) — public archive on
->   [Zenodo (DOI 10.5281/zenodo.23271137)](https://doi.org/10.5281/zenodo.23271137);
+>   [Figshare (DOI 10.6084/m9.figshare.34330836)](https://doi.org/10.6084/m9.figshare.34330836);
 >   details in [`examples/hpcc/repro-verification/RESULTS.md`](examples/hpcc/repro-verification/RESULTS.md).
 
 > **⚠️ This is the original HPCC simulator, modernized — not a re-implementation.** The original
