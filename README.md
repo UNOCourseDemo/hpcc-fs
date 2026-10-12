@@ -80,7 +80,10 @@ parameter sensitivity (1.004–1.008× across α, β, startup, min-rate), and an
 >   376-node fat-tree): [`examples/hpcc/repro-verification/`](examples/hpcc/repro-verification/)
 > - **Simulation results** (per-run `config.yml` + final outputs `fct`/`pfc`/`bottleneck`/`qlen`,
 >   554 MB zstd, no per-run logs) — public archive on
->   [Figshare (DOI 10.6084/m9.figshare.34330836)](https://doi.org/10.6084/m9.figshare.34330836);
+>   [Figshare (DOI 10.6084/m9.figshare.34330836)](https://doi.org/10.6084/m9.figshare.34330836),
+>   mirrored on [Zenodo (DOI 10.5281/zenodo.23271137)](https://doi.org/10.5281/zenodo.23271137)
+>   (5-part split; reassembly instructions in the record) and as GitHub release
+>   [`data-v1`](https://github.com/UNOCourseDemo/hpcc-fs/releases/tag/data-v1);
 >   details in [`examples/hpcc/repro-verification/RESULTS.md`](examples/hpcc/repro-verification/RESULTS.md).
 
 > **⚠️ This is the original HPCC simulator, modernized — not a re-implementation.** The original
@@ -119,7 +122,7 @@ committed config snapshot.
 | `paper.pdf` | Compiled 10-page paper (ACM `acmart` sigconf), ready to view |
 | `paper.tex` + `paper.bib` | LaTeX sources |
 | `paper-ipccc.pdf` + `paper-ipccc.tex` | IEEE-format version, same content — submitted to IEEE IPCCC 2026 as "Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study of Deployable Congestion Control and an RCP Service Mode over In-Network Telemetry" |
-| `talk/ipccc2026-talk.pptx` | Conference talk slides (19 slides, speaker notes) |
+| `talk/ipccc2026-talk.pptx` | Conference talk slides (20 slides, speaker notes) |
 | `figures/*.png` | All paper figures (regenerated live by `make_figures.py`) |
 
 **Build the PDF.** From `examples/hpcc/hpcc-fs/`:

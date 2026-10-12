@@ -356,9 +356,9 @@ function chip(s, x, y, w, txt, fg, bg) {
       { text: t[1], options: { fontSize: 10.5, color: INK } },
     ], { x: 6.95, y: y + 0.09, w: 2.4, h: 0.84, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
-  s.addText("HPCC-PINT (compressed INT) still shows 1.77–1.88× — a smaller footprint is not the fix; a fair-share signal is.", {
+  s.addText("HPCC-PINT (compressed INT): 1.77–1.88× · PowerTCP (NSDI’22): 1.79–1.86× — neither a smaller footprint nor a newer law is the fix; a fair-share signal is.", {
     x: 0.7, y: 4.9, w: 8.8, h: 0.42, fontSize: 12.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("The headline — and it is not just HPCC: on the same benchmark DCQCN runs 1.7 to 2.3, TIMELY 1.8 to 2.0, DCTCP 1.6 to 1.8, all growing with N. Multi-bottleneck unfairness is endemic to deployable RDMA CC. Blue bars: RDMA-RCP sits at 1.003 to 1.007 across the entire sweep — including N of 5 and 6 where stock HPCC's wire format breaks, because one field doesn't grow with path length. Zero PFC everywhere. And an important control: HPCC-PINT, which also carries a single compressed field but still carries *load*, stays at 1.8x — so it's not about telemetry size, it's about carrying a fair share instead of a load sample.");
+  s.addNotes("The headline — and it is not just HPCC: on the same benchmark DCQCN runs 1.7 to 2.3, TIMELY 1.8 to 2.0, DCTCP 1.6 to 1.8, PowerTCP — ported from the authors' own code — 1.8 to 1.9, all growing with N. Multi-bottleneck unfairness is endemic to deployable RDMA CC. Blue bars: RDMA-RCP sits at 1.003 to 1.007 across the entire sweep — including N of 5 and 6 where stock HPCC's wire format breaks, because one field doesn't grow with path length. Zero PFC everywhere. And an important control: HPCC-PINT, which also carries a single compressed field but still carries *load*, stays at 1.8x — so it's not about telemetry size, it's about carrying a fair share instead of a load sample.");
 }
 
 // ============================================================ 13 · generalization + robustness
@@ -412,7 +412,7 @@ function chip(s, x, y, w, txt, fg, bg) {
       { text: t[1], options: { fontSize: 10.5, color: INK } },
     ], { x: 6.55, y: y + 0.08, w: 2.8, h: 0.86, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
-  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring coflow — one phase of a ring allreduce — across five ECMP hash seeds: RDMA-RCP cuts completion time 18 to 23 percent at every seed tested, and 18 percent survives padding the INT header to stock size, so the gain is fairness, not header thinness. On a saturating k-equals-6 fabric with 108 inter-pod flows, makespan improves 16 percent. And the short background flows got three times faster — under near-winner-take-all dynamics, a short flow's fate is a placement lottery; max-min removes it.");
+  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring coflow — one phase of a ring allreduce — across five ECMP hash seeds: RDMA-RCP cuts completion time 18 to 23 percent at every seed tested, and 18 percent survives padding the INT header to stock size, so the gain is fairness, not header thinness. On a saturating k-equals-6 fabric with 108 inter-pod flows, makespan improves 14 percent — 11 with the header padded — with Jain's index rising and zero PFC at 45 switches. And it compounds: the full 30-phase allreduce, scheduled with real per-rank pipelined dependencies rather than global barriers, finishes 21 percent sooner end-to-end — 22 barrier-synchronized, 17 with the padded header — stable across three ECMP placements. And the short background flows got three times faster — under near-winner-take-all dynamics, a short flow's fate is a placement lottery; max-min removes it.");
 }
 
 // ============================================================ 14 · defensibility
@@ -453,7 +453,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Positioning", "What this is — and what it isn’t");
   const L = [
     ["The mechanism is RCP; RDMA-RCP is a mode, not a repair.", "We claim the measurement and the placement. Coexistence needs sliced telemetry: even a 50/50 DWRR reservation cannot help a class whose controller reads port-global signals."],
-    ["Simulation-only, three topology families.", "No testbed; no head-to-head with Bolt / PowerTCP (would require re-implementing them). The simulator re-port reproduces the original HPCC baselines end-to-end."],
+    ["Simulation-only, three topology families.", "No testbed; no head-to-head with Bolt. PowerTCP — ported from the authors’ reference code and port-validated — is in the endemic table at 1.79–1.86×. The simulator re-port reproduces the original HPCC baselines end-to-end."],
     ["Convergence is sub-ms, not one RTT.", "Within 5% of fair share in ~0.6 ms (~30 RTTs); path-length-independent."],
   ];
   L.forEach((r, i) => {
@@ -470,7 +470,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "rate = min(rate_HPCC, fairRate)", options: { fontSize: 13.5, color: NAVY, fontFace: "Courier New" } },
     { text: " — keep HPCC’s precision and the fairness; needs a path-aware window.", options: { fontSize: 13.5, color: NAVY } },
   ], { x: 0.85, y: 4.47, w: 8.35, h: 0.72, fontFace: "Calibri", valign: "middle", margin: 0 });
-  s.addNotes("We are deliberately explicit about scope. The mechanism is RCP — our contribution is showing where the fix has to live and that placing it there is cheap. The evaluation is simulation-only; we re-ported the HPCC simulator onto modern ns-3 and verified it reproduces the original paper's baselines before building on it. Convergence is milliseconds, not one round trip. And the natural next step is a hybrid that keeps HPCC's per-flow precision under a fair-rate ceiling — the obstacle is HPCC's NIC-sized window, which is its own interesting problem.");
+  s.addNotes("We are deliberately explicit about scope. The mechanism is RCP — our contribution is showing where the fix has to live and that placing it there is cheap. The evaluation is simulation-only; we re-ported the HPCC simulator onto modern ns-3 and verified it reproduces the original paper's baselines before building on it. If asked about PowerTCP: it IS evaluated — we ported the authors' reference implementation, validated it solo and pairwise, and it shows the same multi-bottleneck gap, 1.79 to 1.86. Bolt remains the one modern scheme we did not port. Convergence is milliseconds, not one round trip. And the natural next step is a hybrid that keeps HPCC's per-flow precision under a fair-rate ceiling — the obstacle is HPCC's NIC-sized window, which is its own interesting problem.");
 }
 
 // ============================================================ 16 · conclusion (dark)
@@ -478,7 +478,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   const s = p.addSlide(); s.background = { color: NAVY };
   titleBar(s, "Conclusion", "One field, one scalar — a coexisting fairness mode", true);
   const rows = [
-    ["Diagnosis", "HPCC starves multi-bottleneck flows ~2× (3.5× small flows); breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
+    ["Diagnosis", "Every evaluated scheme is unfair to the multi-bottleneck flow (1.6–2.3× — DCQCN, TIMELY, DCTCP, HPCC, PowerTCP); HPCC is near-winner-take-all (3.5× small flows), breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
     ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror. Per-flow FQ equalizes only what senders offer: 1.97× windowed, equal-but-idle windowless.", ICE],
     ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle (hetero cases), zero PFC, −18–23% coflow JCT. Q16 fixed-point verified; high fan-in needs a longer control interval.", BLUE],
   ];
@@ -490,8 +490,10 @@ function chip(s, x, y, w, txt, fg, bg) {
     s.addText(r[1], { x: 2.85, y: y - 0.02, w: 6.6, h: 0.9, fontSize: 13, color: PAPER, fontFace: "Calibri", valign: "middle", margin: 0 });
   });
   s.addText([
-    { text: "Artifact (code · paper · reproduction · data):  ", options: { fontSize: 12.5, color: "9DB2D8" } },
+    { text: "Artifact: ", options: { fontSize: 12.5, color: "9DB2D8" } },
     { text: "github.com/UNOCourseDemo/hpcc-fs", options: { fontSize: 12.5, bold: true, color: ICE, fontFace: "Courier New" } },
+    { text: "   ·   raw data DOI ", options: { fontSize: 12.5, color: "9DB2D8" } },
+    { text: "10.6084/m9.figshare.34330836", options: { fontSize: 12.5, bold: true, color: ICE, fontFace: "Courier New" } },
   ], { x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontFace: "Calibri", align: "center" });
   s.addText("Thank you — questions?", { x: 0.6, y: 5.12, w: 8.85, h: 0.4, fontSize: 15, bold: true, color: PAPER, fontFace: "Cambria", align: "center" });
   s.addNotes("To close: a real, robust fairness failure in the state of the art; evidence that the endpoint can't fix it because the endpoint can't see the flow count; and a deliberately minimal switch mode — one field, one scalar — that lands within about one percent of the max-min oracle with zero PFC, leaving stock HPCC byte-for-byte intact. One caveat we measured and report: on an unreserved shared queue the two modes do not each get a fair share, and even a weighted-DRR reservation cannot fix it — both controllers still read port-global telemetry. Coexistence needs sliced signals or a separate fabric. Everything is in the artifact, including a full reproduction of the original HPCC baselines. Happy to take questions.");
@@ -539,6 +541,39 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "The 0.51× ‘advantage’ is corrupted control input, not fairness. RDMA-RCP is immune: one field, any path length.", options: { fontSize: 12, color: MUT } },
   ], { x: 5.41, y: 1.72, w: 3.8, h: 2.9, fontFace: "Calibri", margin: 0, valign: "top" });
   s.addNotes("Two common questions. Mixed sizes: yes, short flows lose some of the headroom they were borrowing from the starved long flow — that's what fairness means; policy beyond max-min is future work. And the odd N>=5 numbers for stock HPCC are an artifact: the INT record physically overflows at 5 hops, so the controller is reading garbage — that's a bug surface our single-field format simply doesn't have.");
+}
+
+// ============================================================ 19 · BACKUP: dataplane feasibility
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Backup", "Can a switch ASIC run this? The Q16 fixed-point check");
+  const cards = [
+    ["What the port needs", [
+      "3 registers: fair rate R, timestamp, byte snapshot",
+      "dequeue-triggered update: 2 multiplies, 2 subtractions, a clamp",
+      "per packet: one 64-bit compare-and-write (path-min)"]],
+    ["Fixed-point build (fs_fixed_point)", [
+      "Q16 multiplier; precomputed 1/C and \u03b2/(dC)",
+      "reciprocal of the elapsed interval: shift + 8-entry mantissa LUT (\u2264 25% max error)",
+      "no divider anywhere on the update path"]],
+    ["Same results as float", [
+      "N-sweep 1.001\u20131.004\u00d7 (float: 1.003\u20131.005\u00d7)",
+      "ring JCT within 0.9%; damped fan-in 0.81 vs 0.84",
+      "idle ports: update idles to 2\u00b2\u2070\u00b7d \u2014 probe 0.378 vs 0.373 ms"]],
+  ];
+  cards.forEach((c, i) => {
+    const x = 0.6 + i * 3.05;
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 1.5, w: 2.8, h: 2.75, fill: { color: i === 2 ? BLUET : ICET }, rectRadius: 0.09, shadow: sh() });
+    s.addText(c[0], { x: x + 0.22, y: 1.68, w: 2.4, h: 0.55, fontSize: 13.5, bold: true, color: NAVY, fontFace: "Calibri", margin: 0 });
+    s.addText(c[1].map((t, j) => ({ text: t, options: { bullet: true, fontSize: 10.5, color: INK, breakLine: j < c[1].length - 1, paraSpaceAfter: 6 } })),
+      { x: x + 0.22, y: 2.2, w: 2.45, h: 1.95, fontFace: "Calibri", margin: 0 });
+  });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.45, w: 8.85, h: 0.75, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "One real hazard found: ", options: { bold: true, fontSize: 12.5, color: RED } },
+    { text: "an R register in integer Mbps deadlocks floor recovery (growth truncates below ~2.5 Mbps). Kbps units remove it \u2014 we make 1 Kbps the required granularity; 32-bit unsigned Kbps spans 4.3 Tbps.", options: { fontSize: 12, color: INK } },
+  ], { x: 0.85, y: 4.5, w: 8.35, h: 0.65, fontFace: "Calibri", valign: "middle", margin: 0 });
+  s.addNotes("For the dataplane-feasibility question: we did not build a Tofino prototype, and we say so \u2014 whether the interval test and rate update serialize inside one atomic stage is explicitly unverified, as is dequeue-time queue-depth access. What we did do is remove every arithmetic excuse: a divider-free Q16 integer build of the whole update \u2014 shift-plus-mantissa reciprocal, max error twenty-five percent \u2014 reproduces the headline results within a tenth of a percent penalty. And the exercise caught a genuine deployment hazard: keep the rate register in integer megabits and the floor-recovery path deadlocks \u2014 growth truncates to zero below about 2.5 megabits. Units, not width, were the binding choice: kilobit granularity fixes it, and 32 bits of Kbps still spans 4.3 terabits. That hazard is exactly the kind of thing you want to find in simulation before tape-out.");
 }
 
 p.writeFile({ fileName: "ipccc2026-talk.pptx" })
