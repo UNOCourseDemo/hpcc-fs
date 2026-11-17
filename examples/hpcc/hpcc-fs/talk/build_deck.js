@@ -117,6 +117,79 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("Why care about multi-bottleneck paths? Three growing traffic classes cross several contended links in series. HPCC's evaluation — like most DC transport work — is single-bottleneck-centric. So the question of this paper is simply: does the fairness survive? Our methodology is deterministic simulation scored against a fluid max-min oracle, so every number you'll see is exactly reproducible.");
 }
 
+// ============================================================ 3a · PRIMER: max-min fairness
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Primer for everyone", "What does “fair” mean when flows share a link?");
+  // a link drawn as a pipe, split into per-flow segments
+  const pipe = (y, segs, caption) => {
+    s.addText(caption, { x: 0.6, y, w: 5.6, h: 0.32, fontSize: 12.5, bold: true, color: INK, fontFace: "Calibri", margin: 0 });
+    let x = 0.6; const W = 5.6, total = 12;
+    segs.forEach(([name, gbps, fill, fg]) => {
+      const w = W * gbps / total;
+      s.addShape(p.shapes.RECTANGLE, { x, y: y + 0.38, w, h: 0.62, fill: { color: fill }, line: { color: PAPER, width: 2 } });
+      s.addText(`${name}  ${gbps} Gbps`, { x, y: y + 0.38, w, h: 0.62, align: "center", valign: "middle", fontSize: 12.5, bold: true, color: fg, fontFace: "Calibri", margin: 0 });
+      x += w;
+    });
+    s.addText("one 12 Gbps link", { x: 0.6, y: y + 1.02, w: W, h: 0.26, fontSize: 10, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  };
+  pipe(1.38, [["A", 4, BLUE, PAPER], ["B", 4, BLUE, PAPER], ["C", 4, BLUE, PAPER]],
+    "1 · Three flows, each wants as much as it can get");
+  pipe(2.85, [["A", 5, BLUE, PAPER], ["B", 5, BLUE, PAPER], ["C", 2, "9BBB59", PAPER]],
+    "2 · Flow C only needs 2 Gbps — its leftover goes to A and B");
+  // the rule
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.5, y: 1.38, w: 2.95, h: 2.85, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "Max-min fairness", options: { bold: true, fontSize: 15, color: NAVY, breakLine: true, paraSpaceAfter: 8 } },
+    { text: "Raise every flow’s rate together, like water rising in tanks.", options: { fontSize: 12, color: INK, breakLine: true, paraSpaceAfter: 6 } },
+    { text: "Freeze a flow once it is satisfied or its tightest link is full; keep raising the rest.", options: { fontSize: 12, color: INK, breakLine: true, paraSpaceAfter: 8 } },
+    { text: "No flow can get more without taking from one that already has less.", options: { fontSize: 12, italic: true, color: MUT } },
+  ], { x: 6.72, y: 1.55, w: 2.55, h: 2.55, fontFace: "Calibri", margin: 0, valign: "top" });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.5, w: 8.85, h: 0.72, fill: { color: NAVY }, rectRadius: 0.09 });
+  s.addText("This answer is exactly computable — our yardstick, the “oracle”. Every scheme is scored against it.", {
+    x: 0.8, y: 4.5, w: 8.45, h: 0.72, fontSize: 14, bold: true, color: PAPER, fontFace: "Calibri", align: "center", valign: "middle", margin: 0 });
+  s.addNotes("A quick primer for anyone outside networking. When several transfers share one link, what is the fair split? The standard answer is max-min fairness. Picture the link as a pipe. Three flows that each want as much as possible: everyone gets a third, four gigabits each. Now suppose flow C only needs two. Max-min doesn't waste C's leftover: it hands it to A and B, so they get five each. The rule is like filling tanks with water: raise everyone together; when a flow is satisfied, or the busiest link on its path is full, freeze it and keep raising the others. The result has one defining property: you can't give anyone more without taking from someone who already has less. The important part for this talk is that the answer can be computed exactly. That makes it a yardstick — we call it the oracle — and every number later in the talk is a ratio against it: 1.0 means perfectly fair.");
+}
+
+// ============================================================ 3b · PRIMER: the parking lot
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Primer for everyone", "The parking lot: the simplest multi-bottleneck test");
+  const xs = [0.95, 2.95, 4.95, 6.95, 8.95], yS = 2.0, d = 0.46;
+  // long flow across all links
+  s.addShape(p.shapes.LINE, { x: 0.75, y: 1.55, w: 8.75, h: 0, line: { color: BLUE, width: 4, endArrowType: "triangle" } });
+  s.addText("long flow — crosses all 4 links", { x: 2.6, y: 1.18, w: 4.8, h: 0.3, fontSize: 12.5, bold: true, color: BLUE, fontFace: "Calibri", align: "center", margin: 0 });
+  // links between switches
+  for (let i = 0; i < 4; i++) {
+    s.addShape(p.shapes.LINE, { x: xs[i] + d, y: yS + d / 2, w: xs[i + 1] - xs[i] - d, h: 0, line: { color: "8A98AC", width: 5 } });
+    s.addText("25 Gbps", { x: xs[i] + d, y: yS - 0.3, w: xs[i + 1] - xs[i] - d, h: 0.26, fontSize: 10.5, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+    // cross flow i: occupies exactly one link
+    s.addShape(p.shapes.LINE, { x: xs[i] + d / 2 + 0.12, y: 2.85, w: xs[i + 1] - xs[i] - 0.24, h: 0, line: { color: RED, width: 3.5, endArrowType: "triangle" } });
+    s.addText(`cross flow ${i + 1}`, { x: xs[i] + d / 2, y: 2.92, w: xs[i + 1] - xs[i], h: 0.28, fontSize: 11, bold: true, color: RED, fontFace: "Calibri", align: "center", margin: 0 });
+  }
+  xs.forEach((x, i) => {
+    s.addShape(p.shapes.OVAL, { x, y: yS, w: d, h: d, fill: { color: NAVY } });
+    s.addText(`S${i + 1}`, { x, y: yS, w: d, h: d, fontSize: 11, bold: true, color: PAPER, fontFace: "Calibri", align: "center", valign: "middle", margin: 0 });
+  });
+  s.addText([
+    { text: "Every link carries exactly two flows  ⇒  max-min: ", options: { fontSize: 15, bold: true, color: INK } },
+    { text: "everyone gets 12.5 Gbps", options: { fontSize: 15, bold: true, color: GREENOK } },
+    { text: " — including the long flow.", options: { fontSize: 15, bold: true, color: INK } },
+  ], { x: 0.6, y: 3.3, w: 8.85, h: 0.45, fontFace: "Calibri", align: "center", margin: 0 });
+  const card = (x, head, body, fill) => {
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 3.9, w: 4.3, h: 1.1, fill: { color: fill }, rectRadius: 0.09, shadow: sh() });
+    s.addText([
+      { text: head, options: { bold: true, fontSize: 12.5, color: NAVY, breakLine: true, paraSpaceAfter: 3 } },
+      { text: body, options: { fontSize: 11, color: INK } },
+    ], { x: x + 0.2, y: 3.97, w: 3.9, h: 0.98, fontFace: "Calibri", margin: 0, valign: "top" });
+  };
+  card(0.6, "Why the name", "Like driving out of a parking lot: you pass every row, and at each row local cars merge in front of you.", ICET);
+  card(5.15, "Why it’s hard", "The long flow competes at every hop; each cross flow competes once. Being fair at each link separately can still squeeze it at all of them.", REDT);
+  s.addText("Score = long flow’s completion time ÷ cross flows’.  1.0 = perfectly fair;  2.0 = it took twice as long.", {
+    x: 0.6, y: 5.1, w: 8.85, h: 0.32, fontSize: 11.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addNotes("Now the test we use throughout. It's called a parking lot, and the name is the intuition: think of driving out of a big parking lot. You pass every row, and at each row, local cars merge in front of you. The long flow, in blue, is you: it crosses all four links. Each red cross flow is a local car that uses just one link. Every link is shared by exactly two flows, so the fair answer is simple: everyone gets half, 12.5 gigabits — the long flow included. That's what makes this the cleanest possible test. Any gap between the long flow and the others is pure multi-bottleneck unfairness, nothing else. Why is it hard? The long flow has to compete at every hop, while each local flow competes once. A congestion controller that is perfectly reasonable at each link in isolation can still lose the long flow at all of them, and those losses compound. Our score is just the long flow's completion time divided by the cross flows': 1.0 is perfect, 2.0 means it took twice as long. Keep 2.0 in mind — that's roughly what we'll see.");
+}
+
 // ============================================================ 4 · methodology
 {
   const s = p.addSlide(); s.background = { color: PAPER };
