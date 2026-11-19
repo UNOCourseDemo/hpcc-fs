@@ -90,6 +90,57 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("Quick recap of HPCC for those who haven't seen it: switches stamp raw telemetry into every packet, the sender computes a precise utilization estimate and drives it to 95%. It is excellent on the benchmarks it was designed for. Keep one detail in mind: the INT record is per-hop — 8 bytes per switch, capped at 5 hops — and it carries load, not entitlement.");
 }
 
+// ============================================================ 2b · HPCC's track record
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Background", "Why HPCC is the bar to beat: the SIGCOMM ’19 fat-tree");
+  // ---- left: the topology, drawn schematically
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.55, y: 1.35, w: 4.35, h: 3.3, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
+  const rows = [["16 core", 1.72], ["20 agg", 2.42], ["20 ToR", 3.12]];
+  const xs = [1.62, 2.05, 2.48, 2.91, 3.34, 3.77, 4.2];
+  // representative links (drawn first, under the switches)
+  for (let r = 0; r < 2; r++)
+    xs.forEach((x, i) => [i, i + 1].filter((j) => j < xs.length).forEach((j) =>
+      s.addShape(p.shapes.LINE, { x: x + 0.12, y: rows[r][1] + 0.2, w: xs[j] - x, h: rows[r + 1][1] - rows[r][1] - 0.2, line: { color: "B9C6DE", width: 0.75 } })));
+  rows.forEach(([lab, y]) => {
+    s.addText(lab, { x: 0.68, y: y - 0.02, w: 0.85, h: 0.24, fontSize: 10.5, bold: true, color: NAVY, fontFace: "Calibri", margin: 0, valign: "middle" });
+    xs.forEach((x) => s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y, w: 0.24, h: 0.2, fill: { color: NAVY }, rectRadius: 0.03 }));
+    s.addText("…", { x: 4.45, y: y - 0.04, w: 0.35, h: 0.26, fontSize: 13, bold: true, color: NAVY, fontFace: "Calibri", margin: 0, valign: "middle" });
+  });
+  // servers: a short stack under each ToR
+  xs.forEach((x) => {
+    s.addShape(p.shapes.LINE, { x: x + 0.12, y: 3.32, w: 0, h: 0.2, line: { color: "B9C6DE", width: 0.75 } });
+    for (let k = 0; k < 3; k++) s.addShape(p.shapes.RECTANGLE, { x: x + 0.02, y: 3.53 + k * 0.1, w: 0.2, h: 0.07, fill: { color: BLUE } });
+  });
+  s.addText("320 servers", { x: 0.68, y: 3.6, w: 0.9, h: 0.24, fontSize: 10.5, bold: true, color: BLUE, fontFace: "Calibri", margin: 0, valign: "middle" });
+  s.addText([
+    { text: "100 G server NICs · 400 G fabric links · 376 nodes", options: { fontSize: 10.5, color: INK, breakLine: true } },
+    { text: "WebSearch & Hadoop traffic at 30–70% load", options: { fontSize: 10.5, color: MUT } },
+  ], { x: 0.7, y: 4.02, w: 4.1, h: 0.55, fontFace: "Calibri", margin: 0, align: "center" });
+  // ---- right: short-flow tail latency
+  s.addChart(p.charts.BAR, [{ name: "p99 short-flow slowdown", labels: ["HPCC", "HPCC-PINT", "DCTCP", "DCQCN", "TIMELY"], values: [1.92, 2.08, 5.66, 13.72, 18.26] }], {
+    x: 5.1, y: 1.3, w: 4.4, h: 2.35, barDir: "col", chartColors: [NAVY],
+    chartArea: { fill: { color: "FFFFFF" } }, catAxisLabelColor: MUT, valAxisLabelColor: MUT,
+    valGridLine: { color: "E4E9F0", size: 0.5 }, catGridLine: { style: "none" },
+    showValue: true, dataLabelPosition: "outEnd", dataLabelColor: INK, dataLabelFontSize: 10.5,
+    valAxisMaxVal: 20, valAxisMinVal: 0, showLegend: false, showTitle: false, dataLabelFormatCode: "0.00",
+  });
+  s.addText("p99 slowdown of short flows (<3 KB), WebSearch 50% load — lower is better", {
+    x: 5.1, y: 3.65, w: 4.4, h: 0.28, fontSize: 10, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  const st = [["~7× lower", "short-flow tail than DCQCN"], ["≤ 0.6 MB", "peak queue (others: multi-MB)"], ["0 PFC", "any load (TIMELY: 1.1 M)"]];
+  st.forEach(([big, small], i) => {
+    const x = 5.1 + i * 1.5;
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 4.02, w: 1.38, h: 0.63, fill: { color: BLUET }, rectRadius: 0.07 });
+    s.addText([
+      { text: big, options: { bold: true, fontSize: 13, color: NAVY, breakLine: true } },
+      { text: small, options: { fontSize: 9, color: INK } },
+    ], { x: x + 0.06, y: 4.04, w: 1.26, h: 0.6, fontFace: "Calibri", margin: 0, align: "center" });
+  });
+  s.addText("Our reproduction on the re-ported simulator: every signature of the original paper reproduces (details in backup).", {
+    x: 0.55, y: 4.85, w: 8.95, h: 0.32, fontSize: 11.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addNotes("Before I show where HPCC breaks, let me show why it's worth studying. This is the setting of the original SIGCOMM 2019 evaluation: a three-tier fat-tree with 16 core, 20 aggregation and 20 top-of-rack switches, 320 servers with 100-gigabit NICs and 400-gigabit fabric links, running realistic web-search and Hadoop traffic. We re-ran that experiment on our simulator, and HPCC wins clearly. On the right is the latency tail for short flows, the ones applications feel most: at 50 percent load HPCC's 99th-percentile slowdown is 1.9, about seven times lower than DCQCN's 13.7 and far below TIMELY's 18. It keeps switch queues under about 0.6 megabytes while DCQCN and TIMELY build multi-megabyte queues, and it never triggers a PFC pause, where TIMELY hits over a million pauses at 70 percent load. So on the benchmarks the field uses, HPCC is the state of the art. Notice what these benchmarks have in common, though: each flow's congestion is effectively at one link. The question for the rest of this talk is what happens when a flow has to cross several congested links in a row.");
+}
+
 // ============================================================ 3 · the blind spot
 {
   const s = p.addSlide(); s.background = { color: PAPER };
