@@ -74,7 +74,7 @@ parameter sensitivity (1.004–1.008× across α, β, startup, min-rate), and an
 > - **Status:** accepted — to appear in the proceedings of **IEEE IPCCC 2026** (regular paper; Austin, TX, November 2026).
 > - **Paper:** [`examples/hpcc/hpcc-fs/paper.pdf`](examples/hpcc/hpcc-fs/paper.pdf)
 >   · submitted IEEE-format version: [`paper-ipccc.pdf`](examples/hpcc/hpcc-fs/paper-ipccc.pdf)
-> - **Slides:** [`examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pptx`](examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pptx)
+> - **Slides:** [`ipccc2026-talk.pdf`](examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pdf) · [`.pptx` with speaker notes](examples/hpcc/hpcc-fs/talk/ipccc2026-talk.pptx)
 > - **Project page:** <https://unocoursedemo.github.io/hpcc-fs/>
 > - **Baseline reproduction** of the original HPCC (5 schemes × 2 workloads × 3 loads on a
 >   376-node fat-tree): [`examples/hpcc/repro-verification/`](examples/hpcc/repro-verification/)
@@ -123,6 +123,7 @@ committed config snapshot.
 | `paper.tex` + `paper.bib` | LaTeX sources |
 | `paper-ipccc.pdf` + `paper-ipccc.tex` | IEEE-format version, same content — submitted to IEEE IPCCC 2026 as "Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study of Deployable Congestion Control and an RCP Service Mode over In-Network Telemetry" |
 | `talk/ipccc2026-talk.pptx` | Conference talk slides (22 slides, speaker notes) |
+| `talk/ipccc2026-talk.pdf` | Same deck as PDF (no speaker notes) |
 | `figures/*.png` | All paper figures (regenerated live by `make_figures.py`) |
 
 **Build the PDF.** From `examples/hpcc/hpcc-fs/`:
