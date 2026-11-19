@@ -411,6 +411,39 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("The full mechanism fits on one slide, and that's the point. Per egress port: one fair-rate scalar updated by the RCP rule. On the wire: a new INT mode carrying a single 64-bit field, min-aggregated hop by hop — 8 bytes per packet regardless of path length, versus 8 bytes per hop for stock HPCC. At the sender: one new ACK handler that adopts the path minimum. Two honest notes: FS mode runs rate-only — the per-flow window cap is off, and we'll show that's necessary, not incidental — and the stock code path is untouched, byte for byte.");
 }
 
+// ============================================================ 11b · textbook RCP -> RDMA-RCP
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "RDMA-RCP", "What we changed from textbook RCP — and why");
+  const H = (t, al) => ({ text: t, options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 11.5, align: al || "left" } });
+  const ok = (t) => ({ text: t, options: { color: BLUE, bold: true, fontSize: 10 } });
+  const rows = [
+    [H("change vs. textbook RCP"), H("why it was needed"), H("what it bought")],
+    ["Fair rate rides in one 64-bit INT field, min-aggregated per hop",
+     "RDMA fabrics already speak INT; stock HPCC’s per-hop record grows with path length and overflows at 5 hops",
+     ok("8 B/packet at any length; N = 5–6 still 1.006–1.007×; stock HPCC wire untouched")],
+    ["Rate-only sender (or window = R · baseRTT)",
+     "HPCC’s window is sized from the NIC, not the path: it caps the long flow below its fair share",
+     ok("NIC window: 1.50 / 2.00 / 2.49×  →  rate-only 1.003–1.005×, R·RTT window 1.004–1.006×")],
+    ["Separate cold-start rate (1 Gbps) from the rate floor (100 Mbps)",
+     "Tied together, they cap fan-in at C / R = 25 senders; at 64 senders PFC fires 2,045 times",
+     ok("PFC = 0 through 128 senders; bound moves to 250; every fairness result unchanged")],
+    ["Control interval d = 2 × RTTmax",
+     "At high fan-in the rate oscillates: only 25–50% link utilization at the default d",
+     ok("utilization 0.84 / 0.70 at 64 / 128 senders, PFC-free, all fairness results kept")],
+    ["Switch starts at R = C/2; integer (Q16) update, rate kept in Kbps",
+     "R = C would make the first stamp line rate; ASICs have no divider; integer Mbps deadlocks floor recovery",
+     ok("no startup blast; fixed point matches float (1.001–1.004×); 1 Kbps granularity")],
+  ];
+  s.addTable(rows, { x: 0.45, y: 1.3, w: 9.1, colW: [2.75, 3.35, 3.0], fontFace: "Calibri", fontSize: 10,
+    color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.55, valign: "middle", margin: 0.05 });
+  s.addText([
+    { text: "Kept from textbook RCP: ", options: { bold: true, color: NAVY } },
+    { text: "the update law and its defaults α = 0.4, β = 0.226 — untuned. Remaining gap: fan-in efficiency (stock HPCC 0.92).", options: { color: MUT } },
+  ], { x: 0.45, y: 4.95, w: 9.1, h: 0.4, fontSize: 11.5, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addNotes("A fair question is how much of this is just RCP. The control law is textbook RCP, with its published defaults, untuned. What we had to change was everything around it, to make it work on an RDMA fabric. Five changes. One: transport. Instead of RCP's own header field, the fair rate rides in a single 64-bit INT field that each switch min-aggregates. It costs 8 bytes at any path length, so it keeps working at five and six bottlenecks, where stock HPCC's per-hop record overflows. Two: the sender runs rate-only. HPCC's window is sized from the NIC line rate, not the path, so it caps the long flow below its fair share: 1.5, 2.0, 2.5 times at two to four bottlenecks. A window that scales with the fair rate, R times base RTT, works just as well as rate-only. Three, a bug a reviewer caught: our first version used the same 1 gigabit value as both the cold-start rate and the minimum rate. That quietly limits a link to 25 senders, and at 64 senders it caused a PFC storm. Splitting them, 1 gigabit to start and a 100 megabit floor, removed it with no change to any fairness result. Four: at very high fan-in the rate oscillates and utilization drops to 25 to 50 percent. Doubling the control interval brings it to 84 and 70 percent at 64 and 128 senders, and keeps every fairness result. I'll be honest that stock HPCC still does better there, 0.92. Five: switch practicalities. The switch starts at half capacity so the first packets don't blast at line rate, and the update runs in integer fixed point with the rate stored in kilobits. Storing it in megabits deadlocks recovery from the floor, which we only found because we built the integer version.");
+}
+
 // ============================================================ 12 · headline result
 {
   const s = p.addSlide(); s.background = { color: PAPER };
