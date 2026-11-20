@@ -5,7 +5,7 @@
 // out as absolutely-positioned HTML at 96 px/in, then headless Chrome prints:
 //   ipccc2026-talk.pdf        one 10 x 5.625 in page per slide
 //   ipccc2026-talk-notes.pdf  letter pages: slide on top, speaker notes below
-// The .pptx itself is still produced by `node build_deck.js` for the final deck.
+// It also rebuilds ipccc2026-talk.pptx (via build_deck.js) so all three stay in sync.
 // Usage (from talk/): node render_pdf.js
 const fs = require("fs");
 const path = require("path");
@@ -277,4 +277,6 @@ function print(html, out) {
 print(slidesHTML, path.join(HERE, "ipccc2026-talk.pdf"));
 print(notesHTML, path.join(HERE, "ipccc2026-talk-notes.pdf"));
 fs.rmSync(tmp, { recursive: true, force: true });
-console.log(`rendered ${PRES.slides.length} slides -> ipccc2026-talk.pdf, ipccc2026-talk-notes.pdf`);
+// Rebuild the .pptx from the same source so its speaker notes never drift from the PDFs.
+execFileSync(process.execPath, [path.join(HERE, "build_deck.js")], { cwd: HERE, stdio: "ignore" });
+console.log(`rendered ${PRES.slides.length} slides -> ipccc2026-talk.pdf, ipccc2026-talk-notes.pdf, ipccc2026-talk.pptx`);
