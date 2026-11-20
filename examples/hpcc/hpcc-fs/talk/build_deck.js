@@ -499,6 +499,51 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — RDMA-RCP stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.\n\nREADING THE CHART (left, horizontal bars). Rows: six N = 4 workload variants, from top: symmetric 50 MB; a big 200 MB long flow; a small 10 MB long flow; a 200 MB long flow against 10 MB cross flows; the long flow starting 3 ms early; the long flow joining late. Horizontal axis: relative penalty = the long-path flow’s slowdown divided by the short-path flows’ slowdown; the dashed line at 1.0 is the oracle. Red = stock HPCC, blue = RDMA-RCP. Blue stays within 1.0 ± 0.012 in every row. Red is about 1.8–2.0, and 3.53 for the small long flow.\n\nREADING THE TABLE (right). Rows: three topology families. Columns: the penalty under stock HPCC and under RDMA-RCP. “breaks” means stock HPCC's per-hop record overflows on paths of 5+ hops. The † on the fat-tree row: oracle-normalized, meaning each flow's completion time is first divided by its own oracle time, which removes ECMP placement luck.\n\nKEY TERMS. Fat-tree: the standard datacenter topology. Switches sit in three tiers: top-of-rack (ToR) switches connect to servers, aggregation switches connect the ToRs within a pod (a group of racks), and core switches connect the pods. It is called fat because every tier has enough links to carry full bandwidth, and its key property is many parallel paths: two servers in different pods are connected through every core switch. k is the number of ports per switch; our k = 4 fat-tree is the smallest standard one, 20 switches and 16 hosts. ECMP (equal-cost multi-path): how traffic chooses among those parallel paths. The switch hashes each flow's addresses and ports and uses the result to pick one path; all packets of a flow take the same path, so nothing is reordered, and different flows spread across different paths. The hash ignores load, so two big flows can land on the same link by chance while a parallel link sits idle; the hash seed decides which flows collide.\n\nWHY IT MATTERS HERE. A cross-pod flow goes ToR, aggregation, core, aggregation, ToR, so it can meet contention at several links in a row: the real-world parking lot. Part of the unevenness comes from ECMP placement luck rather than congestion control, which is why the fat-tree row is oracle-normalized and why we ran several hash seeds. RDMA-RCP needed nothing special for ECMP: the fair-rate field takes the minimum along whichever path the flow actually takes. (3-tier tree, the other row: a hierarchical topology with a single path between hosts, no multipath.)");
 }
 
+// ============================================================ 13a · ring allreduce: context
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Workload", "Ring allreduce: an ML step that waits for its slowest flow");
+  // ---- left: a ring of GPUs (8 drawn, 16 in the experiment)
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.55, y: 1.3, w: 4.1, h: 3.95, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
+  const cx = 2.6, cy = 3.12, r = 1.22, n = 8, d = 0.44;
+  const pos = [...Array(n).keys()].map((k) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * k) / n;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  });
+  const slow = new Set([1, 5]);            // two cross-pod hops, drawn red
+  pos.forEach(([x, y], k) => {
+    const [x2, y2] = pos[(k + 1) % n];
+    const ux = x2 - x, uy = y2 - y, L = Math.hypot(ux, uy), off = (d / 2 + 0.04) / L;
+    s.addShape(p.shapes.LINE, { x: x + ux * off, y: y + uy * off, w: ux * (1 - 2 * off), h: uy * (1 - 2 * off),
+      line: { color: slow.has(k) ? RED : BLUE, width: slow.has(k) ? 3.5 : 2.5, endArrowType: "triangle" } });
+  });
+  pos.forEach(([x, y], k) => {
+    s.addShape(p.shapes.OVAL, { x: x - d / 2, y: y - d / 2, w: d, h: d, fill: { color: NAVY } });
+    s.addText(`G${k}`, { x: x - d / 2, y: y - d / 2, w: d, h: d, fontSize: 10.5, bold: true, color: PAPER, fontFace: "Calibri", align: "center", valign: "middle", margin: 0 });
+  });
+  s.addText("each GPU sends to its next neighbor", { x: 0.7, y: 1.36, w: 3.8, h: 0.24, fontSize: 11, bold: true, color: NAVY, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addText([
+    { text: "red: ", options: { bold: true, color: RED } },
+    { text: "neighbors in different pods — the transfer crosses several congested links", options: { color: INK } },
+  ], { x: 0.75, y: 4.72, w: 3.7, h: 0.45, fontSize: 10, fontFace: "Calibri", align: "center", margin: 0 });
+  // ---- right: how it works, then why it fits our test
+  s.addText([
+    { text: "How it works", options: { bold: true, fontSize: 13.5, color: NAVY, breakLine: true, paraSpaceAfter: 4 } },
+    { text: "Every GPU needs the sum of all GPUs’ gradients before the next training step.", options: { bullet: true, fontSize: 11, color: INK, breakLine: true, paraSpaceAfter: 3 } },
+    { text: "Each gradient is cut into N chunks; in each phase every GPU sends one chunk to its neighbor, all at once.", options: { bullet: true, fontSize: 11, color: INK, breakLine: true, paraSpaceAfter: 3 } },
+    { text: "2(N − 1) phases: 30 for our 16 GPUs. A phase ends only when its slowest send ends.", options: { bullet: true, fontSize: 11, color: INK } },
+  ], { x: 4.9, y: 1.32, w: 4.55, h: 1.9, fontFace: "Calibri", margin: 0, valign: "top" });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 4.9, y: 3.3, w: 4.55, h: 1.95, fill: { color: BLUET }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "Why it fits our test", options: { bold: true, fontSize: 13.5, color: BLUE, breakLine: true, paraSpaceAfter: 4 } },
+    { text: "Gated by the slowest flow: fairness turns directly into job time.", options: { bullet: true, fontSize: 11, color: INK, breakLine: true, paraSpaceAfter: 3 } },
+    { text: "Cross-pod neighbors are real multi-bottleneck flows: a parking lot inside a fat-tree.", options: { bullet: true, fontSize: 11, color: INK, breakLine: true, paraSpaceAfter: 3 } },
+    { text: "ECMP decides which transfers collide, so it also tests predictability across placements.", options: { bullet: true, fontSize: 11, color: INK, breakLine: true, paraSpaceAfter: 3 } },
+    { text: "The standard collective in data-parallel training.", options: { bullet: true, fontSize: 11, color: INK } },
+  ], { x: 5.1, y: 3.4, w: 4.2, h: 1.8, fontFace: "Calibri", margin: 0, valign: "top" });
+  s.addNotes("Before the results, a word on the workload, because it's what turns fairness into something people pay for. When you train a model on many GPUs, each GPU computes gradients on its own data, and before the next step every GPU needs the sum of everyone's gradients. That's an allreduce, and the standard way to do it is a ring. The GPUs form a logical ring and each one only ever sends to its next neighbor. Every gradient is cut into chunks; in each phase, every GPU passes one chunk to its neighbor and adds in the chunk it receives. After 2(N − 1) phases, 30 for our 16 GPUs, every GPU has the full sum. The key property: all sends in a phase happen at once, and the phase isn't done until the slowest one finishes. That's why it's the right test for us. Some ring neighbors sit in different pods, so their transfer crosses several congested links in a row: that's the parking lot, inside a real fat-tree. Those are exactly the flows HPCC shortchanges, and the whole job waits on them. And because ECMP decides which transfers share links, the same test also tells us how much job time depends on placement luck.\n\nREADING THE DIAGRAM. Eight GPUs are drawn (G0 to G7); the experiment uses 16 on a k = 4 fat-tree. Arrows show who sends to whom: each GPU to its next neighbor. Blue arrows are neighbors close in the network; the two red arrows are cross-pod neighbors whose transfers cross several congested links.\n\nKEY TERMS. Gradient: the update each GPU computes from its data. Allreduce: combine (sum) every GPU's values and give everyone the result. Phase: one round in which every GPU sends one chunk to its neighbor. Reduce-scatter and allgather: the first N − 1 phases sum the chunks, the last N − 1 phases distribute the sums. Data-parallel training: every GPU holds a full copy of the model and works on different data, so it needs an allreduce every step. Our setup: 16 GPUs, 3.125 MB chunks; the next slide shows one phase (16 simultaneous transfers) across five ECMP placements, and the notes there cover the full 30-phase run.");
+}
+
 // ============================================================ 13b · coflow JCT
 {
   const s = p.addSlide(); s.background = { color: PAPER };
