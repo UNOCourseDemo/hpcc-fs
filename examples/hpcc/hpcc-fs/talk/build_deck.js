@@ -547,33 +547,43 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 13b · coflow JCT
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "Results", "The job is gated by its slowest flow: \u221218\u201323% JCT");
+  titleBar(s, "Results", "Allreduce finishes ~21% sooner — at every placement");
+  // the setup, in one line to read aloud
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.55, y: 1.27, w: 8.9, h: 0.42, fill: { color: ICET }, rectRadius: 0.07 });
+  s.addText([
+    { text: "Test:  ", options: { bold: true, color: NAVY } },
+    { text: "16 GPUs, k = 4 fat-tree · each sends 50 MB to its ring neighbor at once · job time = slowest transfer · 5 placements", options: { color: INK } },
+  ], { x: 0.7, y: 1.27, w: 8.6, h: 0.42, fontSize: 11.5, fontFace: "Calibri", valign: "middle", margin: 0 });
   s.addChart(p.charts.BAR, [
     { name: "stock HPCC", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [23.27, 22.44, 23.22, 22.33, 23.11] },
     { name: "RDMA-RCP", labels: ["seed 0", "seed 101", "seed 202", "seed 303", "seed 404"], values: [17.99, 17.96, 17.99, 17.97, 17.92] },
   ], {
-    x: 0.55, y: 1.45, w: 5.6, h: 3.3, barDir: "col", chartColors: [RED, BLUE],
+    x: 0.55, y: 1.85, w: 5.6, h: 3.05, barDir: "col", chartColors: [RED, BLUE],
     chartArea: { fill: { color: "FFFFFF" } }, catAxisLabelColor: MUT, valAxisLabelColor: MUT,
     valGridLine: { color: "E4E9F0", size: 0.5 }, catGridLine: { style: "none" },
-    showValue: false, valAxisMaxVal: 26, valAxisMinVal: 0,
+    showValue: true, dataLabelPosition: "outEnd", dataLabelColor: INK, dataLabelFontSize: 9, dataLabelFormatCode: "0.0",
+    valAxisMaxVal: 26, valAxisMinVal: 0,
     showLegend: true, legendPos: "b", legendColor: MUT, showTitle: false,
   });
-  s.addText("16-flow ring allreduce, k=4 fat-tree \u2014 JCT = slowest flow (ms), 5 ECMP hash seeds", {
-    x: 0.35, y: 4.83, w: 6.0, h: 0.35, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
+  s.addText("job completion time (ms) — lower is better", {
+    x: 0.55, y: 4.92, w: 5.6, h: 0.28, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
   const stats = [
-    ["\u221218\u201323%", "JCT, every seed tested \u2014 \u221218% with the INT header padded to stock size", BLUE, BLUET],
-    ["17.9\u201318.0 ms", "RDMA-RCP job time is the same at every placement (stock 22.3\u201323.3)", BLUE, BLUET],
-    ["~3\u00d7 faster", "short background flows in this mix \u2014 max-min removes the placement lottery", GREENOK, "E9F4EC"],
+    ["1", "\u221221% every time", "at all 5 placements (19.5\u201322.7%)", BLUE, BLUET],
+    ["2", "Same time, any placement", "RDMA-RCP \u2248 18.0 ms; stock varies 22.3\u201323.3 ms", BLUE, BLUET],
+    ["3", "Holds for the full job", "all 30 phases, realistic chunks: 44.1 \u2192 34.8 ms (\u221221%)", GREENOK, "E9F4EC"],
   ];
   stats.forEach((t, i) => {
-    const y = 1.45 + i * 1.13;
-    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.35, y, w: 3.15, h: 0.98, fill: { color: t[3] }, rectRadius: 0.09, shadow: sh() });
+    const y = 1.85 + i * 1.02;
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.35, y, w: 3.1, h: 0.9, fill: { color: t[4] }, rectRadius: 0.09, shadow: sh() });
+    numCircle(s, 6.47, y + 0.28, t[0], t[3]);
     s.addText([
-      { text: t[0], options: { bold: true, fontSize: 17, color: t[2], fontFace: "Cambria", breakLine: true } },
-      { text: t[1], options: { fontSize: 10.5, color: INK } },
-    ], { x: 6.55, y: y + 0.08, w: 2.8, h: 0.86, fontFace: "Calibri", margin: 0, valign: "middle" });
+      { text: t[1], options: { bold: true, fontSize: 14, color: t[3], breakLine: true } },
+      { text: t[2], options: { fontSize: 10.5, color: INK } },
+    ], { x: 6.92, y: y + 0.05, w: 2.45, h: 0.82, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
-  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring coflow — one phase of a ring allreduce — across five ECMP hash seeds: RDMA-RCP cuts completion time 18 to 23 percent at every seed tested, and 18 percent survives padding the INT header to stock size, so the gain is fairness, not header thinness. On a saturating k-equals-6 fabric with 108 inter-pod flows, makespan improves 14 percent — 11 with the header padded — with Jain's index rising and zero PFC at 45 switches. And it compounds: the full 30-phase allreduce, scheduled with real per-rank pipelined dependencies rather than global barriers, finishes 21 percent sooner end-to-end — 22 barrier-synchronized, 17 with the padded header — stable across three ECMP placements. And the short background flows got three times faster — under near-winner-take-all dynamics, a short flow's fate is a placement lottery; max-min removes it.\n\nREADING THE CHART. X axis: five ECMP hash seeds; each seed is a different placement of the 16 flows onto fat-tree paths. Y axis: job completion time (JCT) of one ring-allreduce phase in milliseconds, i.e. when the slowest of the 16 flows finishes. Lower is better. Red = stock HPCC, 22.3–23.3 ms; blue = RDMA-RCP, 17.9–18.0 ms at every seed. That is a 19.5–22.7% cut, nearly identical across placements.\n\nKEY TERMS. Coflow: a group of flows that only matters as a whole; the job is done when its last flow is. Ring allreduce: GPUs arranged in a ring each send to their neighbor, in 2(N − 1) phases for N GPUs; one phase is plotted here. JCT: job completion time. Padded-header control: we padded RDMA-RCP's header to stock HPCC's size and the gain stayed 18%, so it comes from fairness, not from a smaller header. Pipelined vs. barriered: in the full 30-phase run, each GPU starts its next phase as soon as its own data arrives (pipelined), instead of waiting for everyone (barriered).");
+  s.addText("Controls: same gain with a stock-size header (18%) and with background traffic, whose short flows also finish ~3\u00d7 faster.", {
+    x: 0.55, y: 5.2, w: 8.9, h: 0.3, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addNotes("Three beats. First the setup, which is on the strip at the top: 16 GPUs on a small fat-tree, each sending 50 megabytes to its ring neighbor at the same moment, and the job is done when the slowest transfer finishes. We repeat it for five different ECMP placements. Second, point at the bars: red is stock HPCC at 22 to 23 milliseconds, blue is our mode at 18, every single time. That is the first card: about 21 percent faster at all five placements. Third, look at how flat the blue bars are, the second card: with a fair share per link, the job takes the same time no matter where the flows land, while stock HPCC's time depends on placement luck. And the third card answers the obvious question, is one big phase realistic? We also ran the whole allreduce, all 30 phases with realistic chunk sizes, and it is 21 percent faster end to end: 44.1 down to 34.8 milliseconds. If asked about controls: padding our header to stock HPCC's size still gives 18 percent, so the gain comes from fairness, not a smaller header; adding background traffic keeps the gain and makes those short flows about three times faster; and on a larger, saturating fabric the makespan improves 14 percent.\n\nREADING THE CHART. X axis: five ECMP hash seeds; each seed is a different placement of the 16 flows onto fat-tree paths. Y axis: job completion time (JCT) of one ring-allreduce phase in milliseconds, i.e. when the slowest of the 16 flows finishes. Lower is better. Red = stock HPCC, 22.3–23.3 ms; blue = RDMA-RCP, 17.9–18.0 ms at every seed. That is a 19.5–22.7% cut, nearly identical across placements.\n\nKEY TERMS. Coflow: a group of flows that only matters as a whole; the job is done when its last flow is. Ring allreduce: GPUs arranged in a ring each send to their neighbor, in 2(N − 1) phases for N GPUs; one phase is plotted here. JCT: job completion time. Padded-header control: we padded RDMA-RCP's header to stock HPCC's size and the gain stayed 18%, so it comes from fairness, not from a smaller header. Pipelined vs. barriered: in the full 30-phase run, each GPU starts its next phase as soon as its own data arrives (pipelined), instead of waiting for everyone (barriered).");
 }
 
 // ============================================================ 14 · defensibility

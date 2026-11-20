@@ -157,6 +157,7 @@ function table(rows, o) {
 
 function fmt(v, code) {
   if (code === "0.00") return v.toFixed(2);
+  if (code === "0.0") return v.toFixed(1);
   if (code === "0.0#") return String(Math.round(v * 100) / 100);
   return String(v);
 }
