@@ -580,32 +580,25 @@ function chip(s, x, y, w, txt, fg, bg) {
 {
   const s = p.addSlide(); s.background = { color: PAPER };
   titleBar(s, "Robustness", "Not a trick — but not free on HPCC’s turf");
-  // card 1: window ablation
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.45, w: 2.85, h: 3.0, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
-  s.addText([
-    { text: "Not a windowing trick", options: { bold: true, fontSize: 13.5, color: NAVY, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "HPCC’s window back on → 1.5–2.5×, worse with path length: it is sized from the NIC, not the path.", options: { fontSize: 11.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "A window sized to the fair rate (R · base RTT) keeps fairness: 1.004–1.006×.", options: { fontSize: 11, color: MUT } },
-  ], { x: 0.84, y: 1.65, w: 2.4, h: 2.6, fontFace: "Calibri", margin: 0, valign: "top" });
   // card 2: sensitivity
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 3.6, y: 1.45, w: 2.85, h: 3.0, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.45, w: 4.3, h: 2.55, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
   s.addText([
-    { text: "Not a tuning trick", options: { bold: true, fontSize: 13.5, color: NAVY, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "RCP defaults α = 0.4, β = 0.226 — untuned.", options: { fontSize: 11.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "Sweeping α, β, startup fraction, minRate one-at-a-time: penalty stays 1.004–1.008×, PFC = 0 throughout.", options: { fontSize: 11, color: MUT } },
-  ], { x: 3.84, y: 1.65, w: 2.4, h: 2.6, fontFace: "Calibri", margin: 0, valign: "top" });
+    { text: "Not a tuning trick", options: { bold: true, fontSize: 16, color: NAVY, breakLine: true, paraSpaceAfter: 6 } },
+    { text: "RCP defaults α = 0.4, β = 0.226 — untuned.", options: { fontSize: 13.5, color: INK, breakLine: true, paraSpaceAfter: 6 } },
+    { text: "Sweeping α, β, startup fraction, minRate one-at-a-time: penalty stays 1.004–1.008×, PFC = 0 throughout.", options: { fontSize: 13, color: MUT } },
+  ], { x: 0.86, y: 1.72, w: 3.8, h: 2.1, fontFace: "Calibri", margin: 0, valign: "top" });
   // card 3: home turf
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.6, y: 1.45, w: 2.85, h: 3.0, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 5.15, y: 1.45, w: 4.3, h: 2.55, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
   s.addText([
-    { text: "HPCC’s turf: a trade-off", options: { bold: true, fontSize: 13.5, color: RED, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "Single-link incast, default 1 Gbps startup:", options: { fontSize: 11, color: INK, breakLine: true, paraSpaceAfter: 2 } },
-    { text: "HPCC ~15% faster (259 vs 298 μs)", options: { bold: true, fontSize: 11.5, color: RED, breakLine: true } },
-    { text: "RDMA-RCP ¼ the queue (38–64 vs 143 KB)", options: { bold: true, fontSize: 11.5, color: BLUE, breakLine: true, paraSpaceAfter: 5 } },
-    { text: "At 8 Gbps startup RDMA-RCP is faster (242 μs), but fast startup is riskier under heavy fan-in.", options: { fontSize: 10.5, color: MUT } },
-  ], { x: 6.84, y: 1.65, w: 2.4, h: 2.6, fontFace: "Calibri", margin: 0, valign: "top" });
+    { text: "HPCC’s turf: a trade-off", options: { bold: true, fontSize: 16, color: RED, breakLine: true, paraSpaceAfter: 6 } },
+    { text: "Single-link incast, default 1 Gbps startup:", options: { fontSize: 13, color: INK, breakLine: true, paraSpaceAfter: 2 } },
+    { text: "HPCC ~15% faster (259 vs 298 μs)", options: { bold: true, fontSize: 13.5, color: RED, breakLine: true } },
+    { text: "RDMA-RCP ¼ the queue (38–64 vs 143 KB)", options: { bold: true, fontSize: 13.5, color: BLUE, breakLine: true, paraSpaceAfter: 5 } },
+    { text: "At 8 Gbps startup RDMA-RCP is faster (242 μs), but fast startup is riskier under heavy fan-in.", options: { fontSize: 12.5, color: MUT } },
+  ], { x: 5.41, y: 1.72, w: 3.8, h: 2.1, fontFace: "Calibri", margin: 0, valign: "top" });
   s.addText("Everything regenerates deterministically from the artifact — figures and tables are built from live runs.", {
-    x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontSize: 12, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("That's the good side. Before comparing the two head to head, three checks a skeptic would ask for. First, is turning off HPCC's window a trick? No. Put HPCC's window back and the unfairness returns, 1.5 to 2.5 times and worse with path length, because that window is sized from the NIC's speed, not the path. A window sized to the fair rate, R times the base RTT, keeps fairness at 1.004 to 1.006. So windows are fine; the wrong window size is the problem. Second, did we tune RCP? No. These are RCP's textbook defaults, and sweeping each parameter one at a time leaves the penalty between 1.004 and 1.008, with zero PFC. Third, what does it cost on HPCC's home turf, a single-link incast? Here I want to be straight: at our default 1 gigabit startup, HPCC finishes about 15 percent faster, 259 versus 298 microseconds, while RDMA-RCP holds about a quarter of the queue. Raise RDMA-RCP's startup to 8 gigabits and it finishes faster than HPCC, 242 microseconds, but a fast startup is exactly what becomes risky with many senders, so the headline results keep 1 gigabit. It's a trade-off you can tune, not a free win, and that leads straight into the head-to-head comparison.\n\nKEY TERMS. Ablation: switch one design choice off and measure what breaks. var_win: HPCC's window, sized from the NIC line rate. Sensitivity sweep: vary one parameter at a time (α, β, startup rate, rate floor) to check the result does not hinge on tuning. Home turf: HPCC's favorite case, a single-bottleneck incast, where many senders hit one receiver link. Startup rate: what a sender uses before its first fair-rate feedback.");
+    x: 0.6, y: 4.3, w: 8.85, h: 0.4, fontSize: 12, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
+  s.addNotes("That's the good side. Before comparing the two head to head, two checks a skeptic would ask for. First, did we tune RCP? No. These are RCP's textbook defaults, and sweeping each parameter one at a time leaves the penalty between 1.004 and 1.008, with zero PFC. Second, what does it cost on HPCC's home turf, a single-link incast? Here I want to be straight: at our default 1 gigabit startup, HPCC finishes about 15 percent faster, 259 versus 298 microseconds, while RDMA-RCP holds about a quarter of the queue. Raise RDMA-RCP's startup to 8 gigabits and it finishes faster than HPCC, 242 microseconds, but a fast startup is exactly what becomes risky with many senders, so the headline results keep 1 gigabit. It's a trade-off you can tune, not a free win, and that leads straight into the head-to-head comparison.\n\nKEY TERMS. Sensitivity sweep: vary one parameter at a time (α, β, startup rate, rate floor) to check the result does not hinge on tuning. Home turf: HPCC's favorite case, a single-bottleneck incast, where many senders hit one receiver link. Startup rate: what a sender uses before its first fair-rate feedback.");
 }
 
 // ============================================================ 14b · head-to-head: who is better at what
