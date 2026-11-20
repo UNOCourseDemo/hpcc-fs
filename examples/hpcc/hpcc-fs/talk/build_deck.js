@@ -289,7 +289,7 @@ function chip(s, x, y, w, txt, fg, bg) {
 // ============================================================ 7 · sender-only fixes fail
 {
   const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "Negative result", "Six sender-only designs — none gets close");
+  titleBar(s, "Negative result", "Sender-only designs — none gets close");
   const rows = [
     [{ text: "sender-side variant (mb_mode)", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12.5 } },
      { text: "idea", options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12.5 } },
@@ -517,7 +517,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     x: 0.35, y: 4.83, w: 6.0, h: 0.35, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
   const stats = [
     ["\u221218\u201323%", "JCT, every seed tested \u2014 \u221218% with the INT header padded to stock size", BLUE, BLUET],
-    ["17.9\u201318.0 ms", "FS JCT is placement-invariant (stock 22.3\u201323.3)", BLUE, BLUET],
+    ["17.9\u201318.0 ms", "RDMA-RCP job time is the same at every placement (stock 22.3\u201323.3)", BLUE, BLUET],
     ["~3\u00d7 faster", "short background flows in this mix \u2014 max-min removes the placement lottery", GREENOK, "E9F4EC"],
   ];
   stats.forEach((t, i) => {
