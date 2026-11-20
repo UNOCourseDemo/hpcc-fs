@@ -262,7 +262,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     labels: ["cross flow 1", "cross flow 2", "cross flow 3", "cross flow 4", "long flow"],
     values: [23.2, 23.2, 23.2, 23.2, 0.38],
   }], {
-    x: 0.55, y: 1.45, w: 5.6, h: 3.35, barDir: "bar",
+    x: 0.55, y: 1.4, w: 5.6, h: 3.0, barDir: "bar",
     chartColors: [RED], chartArea: { fill: { color: "FFFFFF" } },
     catAxisLabelColor: MUT, valAxisLabelColor: MUT,
     valGridLine: { color: "E4E9F0", size: 0.5 }, catGridLine: { style: "none" },
@@ -270,15 +270,20 @@ function chip(s, x, y, w, txt, fg, bg) {
     showLegend: false, showTitle: false, valAxisMaxVal: 25, dataLabelFormatCode: "0.0#",
   });
   s.addText("stock HPCC, N = 4, first 18 ms — fair share is 12.5 Gbps for everyone", {
-    x: 0.55, y: 4.85, w: 5.6, h: 0.35, fontSize: 11, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.45, y: 1.5, w: 3.05, h: 3.3, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
+    x: 0.55, y: 4.4, w: 5.6, h: 0.3, fontSize: 11, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.45, y: 1.45, w: 3.05, h: 3.2, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
   s.addText([
     { text: "Zero PFC. Zero loss.", options: { bold: true, fontSize: 15, color: RED, breakLine: true, paraSpaceAfter: 6 } },
     { text: "No pathology to point at — every link is at target utilization η.", options: { fontSize: 12.5, color: INK, breakLine: true, paraSpaceAfter: 10 } },
     { text: "The unfair allocation is the control law's equilibrium.", options: { bold: true, fontSize: 13.5, color: INK, breakLine: true, paraSpaceAfter: 10 } },
     { text: "At each shared link the local single-bottleneck flow wins; the long flow is squeezed at all of them.", options: { fontSize: 12, color: MUT } },
-  ], { x: 6.7, y: 1.72, w: 2.55, h: 2.9, fontFace: "Calibri", margin: 0 });
-  s.addNotes("Here's what it looks like inside: four cross flows sit at 23 Gbps each while the long flow is pinned at 0.4 — for the entire contention window. The crucial observation: nothing is broken. No PFC, no loss, links at target utilization. The starvation IS the equilibrium of the control law. That reframes the problem: you can't patch a symptom; you have to change what information the control loop has.\n\nREADING THE CHART (horizontal bars). Rows (vertical axis): the five flows at N = 4, four cross flows and the long flow. Horizontal axis: each flow’s average goodput in Gbps during the contention window, the first ~18 ms, under stock HPCC. Fair share is 12.5 Gbps for every flow. The cross flows sit at about 23.2 Gbps and the long flow at about 0.38, roughly a 60× gap.");
+  ], { x: 6.7, y: 1.6, w: 2.55, h: 2.9, fontFace: "Calibri", margin: 0 });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.55, y: 4.82, w: 8.95, h: 0.55, fill: { color: NAVY }, rectRadius: 0.08 });
+  s.addText([
+    { text: "Not just HPCC:  ", options: { bold: true, color: ICE } },
+    { text: "DCQCN 1.7–2.3× · TIMELY 1.8–2.0× · DCTCP 1.6–1.8× · PowerTCP 1.8–1.9× — the gap is endemic.", options: { color: PAPER } },
+  ], { x: 0.75, y: 4.82, w: 8.55, h: 0.55, fontSize: 13, fontFace: "Calibri", valign: "middle", align: "center", margin: 0 });
+  s.addNotes("Here's what it looks like inside: four cross flows sit at 23 Gbps each while the long flow is pinned at 0.4 — for the entire contention window. The crucial observation: nothing is broken. No PFC, no loss, links at target utilization. The starvation IS the equilibrium of the control law. That reframes the problem: you can't patch a symptom; you have to change what information the control loop has. And widen the lens, because this is what makes it a finding rather than an HPCC bug: DCQCN, TIMELY, DCTCP and PowerTCP all show the same gap, between 1.6 and 2.3 times. Multi-bottleneck unfairness is endemic to deployable RDMA congestion control. So can we fix it where HPCC lives, at the sender? We tried hard.\n\nREADING THE CHART (horizontal bars). Rows (vertical axis): the five flows at N = 4, four cross flows and the long flow. Horizontal axis: each flow’s average goodput in Gbps during the contention window, the first ~18 ms, under stock HPCC. Fair share is 12.5 Gbps for every flow. The cross flows sit at about 23.2 Gbps and the long flow at about 0.38, roughly a 60× gap.");
 }
 
 // ============================================================ 7 · sender-only fixes fail
@@ -564,7 +569,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   ], { x: 6.84, y: 1.65, w: 2.4, h: 2.6, fontFace: "Calibri", margin: 0, valign: "top" });
   s.addText("Everything regenerates deterministically from the artifact — figures and tables are built from live runs.", {
     x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontSize: 12, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes RDMA-RCP match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness mode is not a trade-off.");
+  s.addNotes("That's the good side. Now let's put our own mode in HPCC's home scenarios. Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes RDMA-RCP match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness mode is not a trade-off.");
 }
 
 // ============================================================ 14b · head-to-head: who is better at what
@@ -656,26 +661,27 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addText([
     { text: "Future: a hybrid overlay — ", options: { bold: true, fontSize: 13.5, color: NAVY } },
     { text: "rate = min(rate_HPCC, fairRate)", options: { fontSize: 13.5, color: NAVY, fontFace: "Courier New" } },
-    { text: " — keep HPCC’s precision and the fairness; needs a path-aware window.", options: { fontSize: 13.5, color: NAVY } },
+    { text: " — keep HPCC’s speed and the fairness. Fair-rate-sized window: shown. Stability: open.", options: { fontSize: 13.5, color: NAVY } },
   ], { x: 0.85, y: 4.47, w: 8.35, h: 0.72, fontFace: "Calibri", valign: "middle", margin: 0 });
-  s.addNotes("We are deliberately explicit about scope. The mechanism is RCP — our contribution is showing where the fix has to live and that placing it there is cheap. The evaluation is simulation-only; we re-ported the HPCC simulator onto modern ns-3 and verified it reproduces the original paper's baselines before building on it. If asked about PowerTCP: it IS evaluated — we ported the authors' reference implementation, validated it solo and pairwise, and it shows the same multi-bottleneck gap, 1.79 to 1.86. Bolt remains the one modern scheme we did not port. Convergence is milliseconds, not one round trip. And the natural next step is a hybrid that keeps HPCC's per-flow precision under a fair-rate ceiling — the obstacle is HPCC's NIC-sized window, which is its own interesting problem.");
+  s.addNotes("We are deliberately explicit about scope. The mechanism is RCP — our contribution is showing where the fix has to live and that placing it there is cheap. The evaluation is simulation-only; we re-ported the HPCC simulator onto modern ns-3 and verified it reproduces the original paper's baselines before building on it. If asked about PowerTCP: it IS evaluated — we ported the authors' reference implementation, validated it solo and pairwise, and it shows the same multi-bottleneck gap, 1.79 to 1.86. Bolt remains the one modern scheme we did not port. Convergence is milliseconds, not one round trip. And both controllers produce a rate, so do we really have to choose? The natural next step is the hybrid: send at the minimum of HPCC's rate and the fair rate. The ceiling caps the flows that took too much, which frees capacity and pulls HPCC out of its frozen hold state, so HPCC's own fast loop lifts the starved flow while keeping its quick reaction to incast. It needs a window sized to the fair rate, which we have already shown works, and a stability analysis we have not done. If it holds, it targets the case neither controller handles alone: clusters where cross-pod collectives and storage incast share the same links.");
 }
 
 // ============================================================ 16 · conclusion (dark)
 {
   const s = p.addSlide(); s.background = { color: NAVY };
-  titleBar(s, "Conclusion", "One field, one scalar — a coexisting fairness mode", true);
+  titleBar(s, "Conclusion", "Fairness needs the link — and the choice is about traffic", true);
   const rows = [
-    ["Diagnosis", "Every evaluated scheme is unfair to the multi-bottleneck flow (1.6–2.3× — DCQCN, TIMELY, DCTCP, HPCC, PowerTCP); HPCC is near-winner-take-all (3.5× small flows), breaks past 4 hops. Zero PFC — it’s the equilibrium.", RED],
-    ["Negative result", "Six sender-only designs fail — incl. a full RCP mirror. Per-flow FQ equalizes only what senders offer: 1.97× windowed, equal-but-idle windowless.", ICE],
-    ["RDMA-RCP", "A fabric/slice mode alongside HPCC: 1.005×, flows within 5–13% of oracle (hetero cases), zero PFC, −18–23% coflow JCT. Q16 fixed-point verified; high fan-in needs a longer control interval.", BLUE],
+    ["The gap", "Every deployable scheme we tested gives a multi-bottleneck flow about half its fair share (1.6–2.3×). It is the equilibrium, not a bug.", RED],
+    ["Why", "The sender can’t fix it: private rate state remembers arrival history. One shared fair rate per link erases it.", ICE],
+    ["The fix", "RDMA-RCP: one 8 B field, one scalar per port. 1.005×, zero PFC, collectives 18–23% faster; stock HPCC untouched.", BLUE],
+    ["The choice", "One real trade-off: shared state costs speed. Match the controller to the traffic, then combine the two.", GREENOK],
   ];
   rows.forEach((r, i) => {
-    const y = 1.55 + i * 1.0;
-    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y, w: 2.0, h: 0.8, fill: { color: r[2] }, rectRadius: 0.08 });
-    s.addText(r[0], { x: 0.6, y, w: 2.0, h: 0.8, align: "center", valign: "middle", fontSize: 13.5, bold: true,
+    const y = 1.42 + i * 0.8;
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y, w: 1.85, h: 0.66, fill: { color: r[2] }, rectRadius: 0.08 });
+    s.addText(r[0], { x: 0.6, y, w: 1.85, h: 0.66, align: "center", valign: "middle", fontSize: 13.5, bold: true,
       color: r[2] === ICE ? NAVY : PAPER, fontFace: "Calibri", margin: 0 });
-    s.addText(r[1], { x: 2.85, y: y - 0.02, w: 6.6, h: 0.9, fontSize: 13, color: PAPER, fontFace: "Calibri", valign: "middle", margin: 0 });
+    s.addText(r[1], { x: 2.7, y: y - 0.02, w: 6.75, h: 0.7, fontSize: 12.5, color: PAPER, fontFace: "Calibri", valign: "middle", margin: 0 });
   });
   s.addText([
     { text: "Artifact: ", options: { fontSize: 12.5, color: "9DB2D8" } },
@@ -684,7 +690,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "10.6084/m9.figshare.34330836", options: { fontSize: 12.5, bold: true, color: ICE, fontFace: "Courier New" } },
   ], { x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontFace: "Calibri", align: "center" });
   s.addText("Thank you — questions?", { x: 0.6, y: 5.12, w: 8.85, h: 0.4, fontSize: 15, bold: true, color: PAPER, fontFace: "Cambria", align: "center" });
-  s.addNotes("To close: a real, robust fairness failure in the state of the art; evidence that the endpoint can't fix it because the endpoint can't see the flow count; and a deliberately minimal switch mode — one field, one scalar — that lands within about one percent of the max-min oracle with zero PFC, leaving stock HPCC byte-for-byte intact. One caveat we measured and report: on an unreserved shared queue the two modes do not each get a fair share, and even a weighted-DRR reservation cannot fix it — both controllers still read port-global telemetry. Coexistence needs sliced signals or a separate fabric. Everything is in the artifact, including a full reproduction of the original HPCC baselines. Happy to take questions.");
+  s.addNotes("To close, the whole story in four lines. The gap: every deployable scheme we tested, HPCC included, gives a flow that crosses several bottlenecks about half its fair share, and it's the equilibrium, not a bug. Why: the sender can't fix it, because private rate state remembers arrival history; one shared fair rate per link erases it. The fix: one 8-byte field and one number per switch port bring fairness to within half a percent, with zero PFC, and collective jobs finish 18 to 23 percent sooner, while stock HPCC stays untouched. The choice: there is one real trade-off, shared state costs reaction speed, so match the controller to the traffic, and next, combine the two. HPCC is excellent at the problem it was built for. We measured the problem next to it, showed why the fix has to live at the link, and found that the choice between the two kinds of control is really a choice about traffic, one we may not have to make for much longer.");
 }
 
 // ============================================================ 17 · BACKUP: reproduction
