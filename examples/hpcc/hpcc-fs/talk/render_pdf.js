@@ -120,7 +120,9 @@ function box(o, inner, extra = "") {
 const SHADOW = "box-shadow:2px 2px 7px rgba(0,0,0,0.14);";
 function shape(type, o) {
   if (type === "line") {
-    const x1 = o.x * PX, y1 = o.y * PX, x2 = (o.x + o.w) * PX, y2 = (o.y + o.h) * PX;
+    const [xa, xb] = o.flipH ? [o.x + o.w, o.x] : [o.x, o.x + o.w];
+    const [ya, yb] = o.flipV ? [o.y + o.h, o.y] : [o.y, o.y + o.h];
+    const x1 = xa * PX, y1 = ya * PX, x2 = xb * PX, y2 = yb * PX;
     const ln = o.line || {}; const c = col(ln.color); const w = (ln.width || 1) * PT;
     const id = "a" + Math.random().toString(36).slice(2, 8);
     const marker = ln.endArrowType

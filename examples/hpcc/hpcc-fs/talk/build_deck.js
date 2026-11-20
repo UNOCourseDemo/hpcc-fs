@@ -13,6 +13,23 @@ const sh = () => ({ type: "outer", color: "000000", blur: 7, offset: 2, angle: 4
 
 let p = new pptxgen();
 p.layout = "LAYOUT_16x9"; // 10 x 5.625
+// Lines may be given with a negative w/h (pointing up or left); PowerPoint treats a negative
+// extent as damage and asks to repair the file, so store them as positive size + flipH/flipV.
+{
+  const addSlide = p.addSlide.bind(p);
+  p.addSlide = (...a) => {
+    const sl = addSlide(...a), addShape = sl.addShape.bind(sl);
+    sl.addShape = (type, o) => {
+      if (type === p.shapes.LINE && o && (o.w < 0 || o.h < 0)) {
+        o = { ...o };
+        if (o.w < 0) { o.x += o.w; o.w = -o.w; o.flipH = !o.flipH; }
+        if (o.h < 0) { o.y += o.h; o.h = -o.h; o.flipV = !o.flipV; }
+      }
+      return addShape(type, o);
+    };
+    return sl;
+  };
+}
 p.author = "Haoyu Wang";
 p.title = "Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study (RDMA-RCP)";
 
@@ -863,5 +880,21 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("If asked what exactly we tried at the sender: every design is a small change to HPCC's own update, behind an mb_mode knob, with mode zero byte-identical to stock. Modes one and five boost the additive step — for multi-hop flows, or for flows with a small share — but additive recovery needs on the order of ten thousand RTTs; best case 1.63. Mode two blends the max-hop utilization with the mean, but at eta-hold every hop reads about eta, so the blend changes nothing: 1.95. Modes three and four soften the multiplicative decrease for the multi-hop flow, but the decrease barely fires at the hold point: 1.89 and 1.92. Mode six is the strongest: the sender runs the switch's exact RCP recursion privately, per hop, from its own INT samples, and sends at the minimum. It still reaches only 1.56 synchronized, and 1.65 or 0.81 when one side arrives late — the direction set by arrival order. The identical law in the switch holds 1.0. That is the placement result: same law, same inputs, different location of state.");
 }
 
+// pptxgenjs stores an empty "ppt/media/" folder entry in the zip; PowerPoint flags the
+// package as damaged and offers to repair it, so drop folder entries before saving.
 p.writeFile({ fileName: "ipccc2026-talk.pptx" })
-  .then(() => console.log("deck written"));
+  .then(async (f) => {
+    const fs = require("fs"), JSZip = require("jszip");
+    const src = await JSZip.loadAsync(fs.readFileSync(f)), out = new JSZip();
+    for (const n of Object.keys(src.files)) {
+      if (src.files[n].dir) continue;
+      out.file(n, await src.files[n].async("nodebuffer"), { createFolders: false });
+    }
+    // pptxgenjs also declares a content-type override for one slide master per slide, but
+    // only writes slideMaster1.xml; drop overrides that name parts not in the package.
+    const ct = (await out.file("[Content_Types].xml").async("string")).replace(
+      /<Override PartName="\/([^"]+)"[^>]*\/>/g, (m, p) => (out.file(p) ? m : ""));
+    out.file("[Content_Types].xml", ct, { createFolders: false });
+    fs.writeFileSync(f, await out.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+    console.log("deck written");
+  });
