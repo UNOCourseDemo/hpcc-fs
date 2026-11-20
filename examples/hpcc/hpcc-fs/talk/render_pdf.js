@@ -82,6 +82,7 @@ function paragraphs(content, base) {
   const runs = Array.isArray(content) ? content : [{ text: content, options: {} }];
   runs.forEach((r, i) => {
     const o = Object.assign({}, base, r.options || {});
+    if (o.softBreakBefore) cur.push({ br: true, o });
     const lines = String(r.text).split("\n");
     lines.forEach((ln, j) => {
       cur.push({ text: ln, o });
@@ -99,7 +100,7 @@ function textBlock(content, o) {
     const po = p[0] ? p[0].o : o;
     const st = [`text-align:${po.align === "center" ? "center" : po.align === "right" ? "right" : "left"}`, "margin:0"];
     if (po.paraSpaceAfter) st.push(`margin-bottom:${po.paraSpaceAfter * PT}px`);
-    let inner = p.map((r) => `<span style="${runStyle(r.o)}">${esc(r.text) || "&#8203;"}</span>`).join("");
+    let inner = p.map((r) => r.br ? "<br>" : `<span style="${runStyle(r.o)}">${esc(r.text) || "&#8203;"}</span>`).join("");
     if (po.bullet) {
       st.push(`padding-left:${16 * PT}px;text-indent:${-10 * PT}px`);
       inner = `<span style="${runStyle(po)}">•&nbsp;&nbsp;</span>` + inner;

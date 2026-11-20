@@ -138,7 +138,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   });
   s.addText("Our reproduction on the re-ported simulator: every signature of the original paper reproduces (details in backup).", {
     x: 0.55, y: 4.85, w: 8.95, h: 0.32, fontSize: 11.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
-  s.addNotes("Before I show where HPCC breaks, let me show why it's worth studying. This is the setting of the original SIGCOMM 2019 evaluation: a three-tier fat-tree with 16 core, 20 aggregation and 20 top-of-rack switches, 320 servers with 100-gigabit NICs and 400-gigabit fabric links, running realistic web-search and Hadoop traffic. We re-ran that experiment on our simulator, and HPCC wins clearly. On the right is the latency tail for short flows, the ones applications feel most: at 50 percent load HPCC's 99th-percentile slowdown is 1.9, about seven times lower than DCQCN's 13.7 and far below TIMELY's 18. It keeps switch queues under about 0.6 megabytes while DCQCN and TIMELY build multi-megabyte queues, and it never triggers a PFC pause, where TIMELY hits over a million pauses at 70 percent load. So on the benchmarks the field uses, HPCC is the state of the art. Notice what these benchmarks have in common, though: each flow's congestion is effectively at one link. The question for the rest of this talk is what happens when a flow has to cross several congested links in a row.");
+  s.addNotes("Before I show where HPCC breaks, let me show why it's worth studying. This is the setting of the original SIGCOMM 2019 evaluation: a three-tier fat-tree with 16 core, 20 aggregation and 20 top-of-rack switches, 320 servers with 100-gigabit NICs and 400-gigabit fabric links, running realistic web-search and Hadoop traffic. We re-ran that experiment on our simulator, and HPCC wins clearly. On the right is the latency tail for short flows, the ones applications feel most: at 50 percent load HPCC's 99th-percentile slowdown is 1.9, about seven times lower than DCQCN's 13.7 and far below TIMELY's 18. It keeps switch queues under about 0.6 megabytes while DCQCN and TIMELY build multi-megabyte queues, and it never triggers a PFC pause, where TIMELY hits over a million pauses at 70 percent load. So on the benchmarks the field uses, HPCC is the state of the art. Notice what these benchmarks have in common, though: each flow's congestion is effectively at one link. The question for the rest of this talk is what happens when a flow has to cross several congested links in a row.\n\nREADING THE CHART (right). X axis: the five congestion-control schemes, HPCC on the left. Y axis: 99th-percentile FCT slowdown of short flows (under 3 KB). Slowdown = a flow’s completion time divided by its completion time alone on an empty network, so 1.0 is perfect; the p99 value is what the slowest 1% of short flows reach. Lower is better. Setting: WebSearch at 50% load on the 320-server fat-tree, our reproduction. HPCC 1.92 versus DCQCN 13.7 and TIMELY 18.3.");
 }
 
 // ============================================================ 3 · the blind spot
@@ -168,40 +168,6 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addNotes("Why care about multi-bottleneck paths? Three growing traffic classes cross several contended links in series. HPCC's evaluation — like most DC transport work — is single-bottleneck-centric. So the question of this paper is simply: does the fairness survive? Our methodology is deterministic simulation scored against a fluid max-min oracle, so every number you'll see is exactly reproducible.");
 }
 
-// ============================================================ 3a · PRIMER: max-min fairness
-{
-  const s = p.addSlide(); s.background = { color: PAPER };
-  titleBar(s, "Primer for everyone", "What does “fair” mean when flows share a link?");
-  // a link drawn as a pipe, split into per-flow segments
-  const pipe = (y, segs, caption) => {
-    s.addText(caption, { x: 0.6, y, w: 5.6, h: 0.32, fontSize: 12.5, bold: true, color: INK, fontFace: "Calibri", margin: 0 });
-    let x = 0.6; const W = 5.6, total = 12;
-    segs.forEach(([name, gbps, fill, fg]) => {
-      const w = W * gbps / total;
-      s.addShape(p.shapes.RECTANGLE, { x, y: y + 0.38, w, h: 0.62, fill: { color: fill }, line: { color: PAPER, width: 2 } });
-      s.addText(`${name}  ${gbps} Gbps`, { x, y: y + 0.38, w, h: 0.62, align: "center", valign: "middle", fontSize: 12.5, bold: true, color: fg, fontFace: "Calibri", margin: 0 });
-      x += w;
-    });
-    s.addText("one 12 Gbps link", { x: 0.6, y: y + 1.02, w: W, h: 0.26, fontSize: 10, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
-  };
-  pipe(1.38, [["A", 4, BLUE, PAPER], ["B", 4, BLUE, PAPER], ["C", 4, BLUE, PAPER]],
-    "1 · Three flows, each wants as much as it can get");
-  pipe(2.85, [["A", 5, BLUE, PAPER], ["B", 5, BLUE, PAPER], ["C", 2, "9BBB59", PAPER]],
-    "2 · Flow C only needs 2 Gbps — its leftover goes to A and B");
-  // the rule
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.5, y: 1.38, w: 2.95, h: 2.85, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
-  s.addText([
-    { text: "Max-min fairness", options: { bold: true, fontSize: 15, color: NAVY, breakLine: true, paraSpaceAfter: 8 } },
-    { text: "Raise every flow’s rate together, like water rising in tanks.", options: { fontSize: 12, color: INK, breakLine: true, paraSpaceAfter: 6 } },
-    { text: "Freeze a flow once it is satisfied or its tightest link is full; keep raising the rest.", options: { fontSize: 12, color: INK, breakLine: true, paraSpaceAfter: 8 } },
-    { text: "No flow can get more without taking from one that already has less.", options: { fontSize: 12, italic: true, color: MUT } },
-  ], { x: 6.72, y: 1.55, w: 2.55, h: 2.55, fontFace: "Calibri", margin: 0, valign: "top" });
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.5, w: 8.85, h: 0.72, fill: { color: NAVY }, rectRadius: 0.09 });
-  s.addText("This answer is exactly computable — our yardstick, the “oracle”. Every scheme is scored against it.", {
-    x: 0.8, y: 4.5, w: 8.45, h: 0.72, fontSize: 14, bold: true, color: PAPER, fontFace: "Calibri", align: "center", valign: "middle", margin: 0 });
-  s.addNotes("A quick primer for anyone outside networking. When several transfers share one link, what is the fair split? The standard answer is max-min fairness. Picture the link as a pipe. Three flows that each want as much as possible: everyone gets a third, four gigabits each. Now suppose flow C only needs two. Max-min doesn't waste C's leftover: it hands it to A and B, so they get five each. The rule is like filling tanks with water: raise everyone together; when a flow is satisfied, or the busiest link on its path is full, freeze it and keep raising the others. The result has one defining property: you can't give anyone more without taking from someone who already has less. The important part for this talk is that the answer can be computed exactly. That makes it a yardstick — we call it the oracle — and every number later in the talk is a ratio against it: 1.0 means perfectly fair.");
-}
-
 // ============================================================ 3b · PRIMER: the parking lot
 {
   const s = p.addSlide(); s.background = { color: PAPER };
@@ -227,18 +193,14 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "everyone gets 12.5 Gbps", options: { fontSize: 15, bold: true, color: GREENOK } },
     { text: " — including the long flow.", options: { fontSize: 15, bold: true, color: INK } },
   ], { x: 0.6, y: 3.3, w: 8.85, h: 0.45, fontFace: "Calibri", align: "center", margin: 0 });
-  const card = (x, head, body, fill) => {
-    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 3.9, w: 4.3, h: 1.1, fill: { color: fill }, rectRadius: 0.09, shadow: sh() });
-    s.addText([
-      { text: head, options: { bold: true, fontSize: 12.5, color: NAVY, breakLine: true, paraSpaceAfter: 3 } },
-      { text: body, options: { fontSize: 11, color: INK } },
-    ], { x: x + 0.2, y: 3.97, w: 3.9, h: 0.98, fontFace: "Calibri", margin: 0, valign: "top" });
-  };
-  card(0.6, "Why the name", "Like driving out of a parking lot: you pass every row, and at each row local cars merge in front of you.", ICET);
-  card(5.15, "Why it’s hard", "The long flow competes at every hop; each cross flow competes once. Being fair at each link separately can still squeeze it at all of them.", REDT);
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 3.95, w: 8.85, h: 0.95, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "Why it’s hard", options: { bold: true, fontSize: 13.5, color: NAVY, breakLine: true, paraSpaceAfter: 3 } },
+    { text: "The long flow competes at every hop; each cross flow competes once. Being fair at each link separately can still squeeze it at all of them.", options: { fontSize: 12.5, color: INK } },
+  ], { x: 0.85, y: 4.0, w: 8.35, h: 0.85, fontFace: "Calibri", margin: 0, valign: "middle" });
   s.addText("Score = long flow’s completion time ÷ cross flows’.  1.0 = perfectly fair;  2.0 = it took twice as long.", {
     x: 0.6, y: 5.1, w: 8.85, h: 0.32, fontSize: 11.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
-  s.addNotes("Now the test we use throughout. It's called a parking lot, and the name is the intuition: think of driving out of a big parking lot. You pass every row, and at each row, local cars merge in front of you. The long flow, in blue, is you: it crosses all four links. Each red cross flow is a local car that uses just one link. Every link is shared by exactly two flows, so the fair answer is simple: everyone gets half, 12.5 gigabits — the long flow included. That's what makes this the cleanest possible test. Any gap between the long flow and the others is pure multi-bottleneck unfairness, nothing else. Why is it hard? The long flow has to compete at every hop, while each local flow competes once. A congestion controller that is perfectly reasonable at each link in isolation can still lose the long flow at all of them, and those losses compound. Our score is just the long flow's completion time divided by the cross flows': 1.0 is perfect, 2.0 means it took twice as long. Keep 2.0 in mind — that's roughly what we'll see.");
+  s.addNotes("Now the test we use throughout, the parking lot. The long flow, in blue, crosses all four links. Each red cross flow uses just one link. Our yardstick is max-min fairness: raise every flow's rate together until links fill up, so nobody can get more without taking from someone who has less. Here every link is shared by exactly two flows, so the max-min answer is simple: everyone gets half, 12.5 gigabits — the long flow included. We compute that answer exactly and call it the oracle. That's what makes this the cleanest possible test. Any gap between the long flow and the others is pure multi-bottleneck unfairness, nothing else. Why is it hard? The long flow has to compete at every hop, while each local flow competes once. A congestion controller that is perfectly reasonable at each link in isolation can still lose the long flow at all of them, and those losses compound. Our score is just the long flow's completion time divided by the cross flows': 1.0 is perfect, 2.0 means it took twice as long. Keep 2.0 in mind — that's roughly what we'll see.");
 }
 
 // ============================================================ 4 · methodology
@@ -266,7 +228,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Finding 1", "The long flow is starved ≈ 2× — and it's structural");
   s.addChart(p.charts.BAR, [
     { name: "stock HPCC", labels: ["N=2", "N=3", "N=4"], values: [1.9, 1.92, 1.96] },
-    { name: "multi-rate HPCC", labels: ["N=2", "N=3", "N=4"], values: [1.44, 1.5, 1.75] },
+    { name: "HPCC\u2019s multi-rate mode (per-hop rate, send at min)", labels: ["N=2", "N=3", "N=4"], values: [1.44, 1.5, 1.75] },
   ], {
     x: 0.55, y: 1.4, w: 5.5, h: 3.5, barDir: "col", chartColors: [RED, "9BBB59"],
     chartArea: { fill: { color: "FFFFFF" } }, catAxisLabelColor: MUT, valAxisLabelColor: MUT,
@@ -276,6 +238,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     showTitle: false, dataLabelFormatCode: "0.00",
   });
   s.addText("unfairness ratio \u2014 max-min oracle = 1.0", { x: 0.55, y: 4.95, w: 5.5, h: 0.3, fontSize: 11, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addText("HPCC\u2019s built-in multi-bottleneck option helps \u2014 but doesn\u2019t fix it.", { x: 0.55, y: 5.2, w: 5.5, h: 0.3, fontSize: 12, bold: true, color: "6E8B3D", fontFace: "Calibri", align: "center", margin: 0 });
   const stats = [
     ["1.96×", "penalty at N = 4", RED, REDT],
     ["3.5×", "when the long flow is small (RPC-scale)", RED, REDT],
@@ -287,7 +250,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     s.addText(t[0], { x: 6.55, y: y + 0.1, w: 1.25, h: 0.82, fontSize: 26, bold: true, color: t[2], fontFace: "Cambria", valign: "middle", margin: 0 });
     s.addText(t[1], { x: 7.8, y: y + 0.1, w: 1.6, h: 0.82, fontSize: 11.5, color: INK, valign: "middle", fontFace: "Calibri", margin: 0 });
   });
-  s.addNotes("The finding: stock HPCC starves the long flow by roughly 2x at N=2 through 4, and the effect grows. HPCC's own multi-rate mode helps but doesn't fix it. It's worse — 3.5x — exactly where it hurts most: small, latency-sensitive flows. And past four bottlenecks the per-hop INT record overflows its hop cap and the control input is corrupted outright. Also robust: asymmetric sizes, staggered starts, and RTT equalization don't move it — this is not RTT unfairness.");
+  s.addNotes("The finding: stock HPCC starves the long flow by roughly 2x at N=2 through 4, and the effect grows. The green bars are HPCC's own multi-rate mode, its built-in answer to multiple bottlenecks: it keeps a separate rate for every hop and sends at the minimum. It helps, but doesn't fix it, and it gets worse with N, because each per-hop rate is still a private copy that freezes its startup share. It's worse — 3.5x — exactly where it hurts most: small, latency-sensitive flows. And past four bottlenecks the per-hop INT record overflows its hop cap and the control input is corrupted outright. Also robust: asymmetric sizes, staggered starts, and RTT equalization don't move it — this is not RTT unfairness.\n\nREADING THE CHART. X axis: N, the number of 25 Gbps bottleneck links the long flow crosses, each with its own cross flow. Y axis: unfairness ratio = long-flow completion time divided by the mean cross-flow completion time. The max-min oracle is exactly 1.0, so 1.9 means the long flow took about twice as long. Red = stock HPCC; green = HPCC’s built-in multi-rate mode. Both grow with N.");
 }
 
 // ============================================================ 6 · winner-take-all diagnosis
@@ -315,7 +278,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "The unfair allocation is the control law's equilibrium.", options: { bold: true, fontSize: 13.5, color: INK, breakLine: true, paraSpaceAfter: 10 } },
     { text: "At each shared link the local single-bottleneck flow wins; the long flow is squeezed at all of them.", options: { fontSize: 12, color: MUT } },
   ], { x: 6.7, y: 1.72, w: 2.55, h: 2.9, fontFace: "Calibri", margin: 0 });
-  s.addNotes("Here's what it looks like inside: four cross flows sit at 23 Gbps each while the long flow is pinned at 0.4 — for the entire contention window. The crucial observation: nothing is broken. No PFC, no loss, links at target utilization. The starvation IS the equilibrium of the control law. That reframes the problem: you can't patch a symptom; you have to change what information the control loop has.");
+  s.addNotes("Here's what it looks like inside: four cross flows sit at 23 Gbps each while the long flow is pinned at 0.4 — for the entire contention window. The crucial observation: nothing is broken. No PFC, no loss, links at target utilization. The starvation IS the equilibrium of the control law. That reframes the problem: you can't patch a symptom; you have to change what information the control loop has.\n\nREADING THE CHART (horizontal bars). Rows (vertical axis): the five flows at N = 4, four cross flows and the long flow. Horizontal axis: each flow’s average goodput in Gbps during the contention window, the first ~18 ms, under stock HPCC. Fair share is 12.5 Gbps for every flow. The cross flows sit at about 23.2 Gbps and the long flow at about 0.38, roughly a 60× gap.");
 }
 
 // ============================================================ 7 · sender-only fixes fail
@@ -515,7 +478,7 @@ function chip(s, x, y, w, txt, fg, bg) {
   });
   s.addText("HPCC-PINT (compressed INT): 1.77–1.88× · PowerTCP (NSDI’22): 1.79–1.86× — neither a smaller footprint nor a newer law is the fix; a fair-share signal is.", {
     x: 0.7, y: 4.9, w: 8.8, h: 0.42, fontSize: 12.5, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
-  s.addNotes("The headline — and it is not just HPCC: on the same benchmark DCQCN runs 1.7 to 2.3, TIMELY 1.8 to 2.0, DCTCP 1.6 to 1.8, PowerTCP — ported from the authors' own code — 1.8 to 1.9, all growing with N. Multi-bottleneck unfairness is endemic to deployable RDMA CC. Blue bars: RDMA-RCP sits at 1.003 to 1.007 across the entire sweep — including N of 5 and 6 where stock HPCC's wire format breaks, because one field doesn't grow with path length. Zero PFC everywhere. And an important control: HPCC-PINT, which also carries a single compressed field but still carries *load*, stays at 1.8x — so it's not about telemetry size, it's about carrying a fair share instead of a load sample.");
+  s.addNotes("The headline — and it is not just HPCC: on the same benchmark DCQCN runs 1.7 to 2.3, TIMELY 1.8 to 2.0, DCTCP 1.6 to 1.8, PowerTCP — ported from the authors' own code — 1.8 to 1.9, all growing with N. Multi-bottleneck unfairness is endemic to deployable RDMA CC. Blue bars: RDMA-RCP sits at 1.003 to 1.007 across the entire sweep — including N of 5 and 6 where stock HPCC's wire format breaks, because one field doesn't grow with path length. Zero PFC everywhere. And an important control: HPCC-PINT, which also carries a single compressed field but still carries *load*, stays at 1.8x — so it's not about telemetry size, it's about carrying a fair share instead of a load sample.\n\nREADING THE CHART. X axis: N = 2 to 6 bottleneck links. Y axis: unfairness ratio, long-flow completion time divided by short-flow completion time; the dashed line at 1.0 is the max-min oracle. Red = stock HPCC, green = multi-rate HPCC, blue = RDMA-RCP. Blue sits on the dashed line at every N (1.003–1.007). At N = 5 and 6 red and green drop to about 0.5. That is not an improvement: the 6-switch path overflows HPCC’s 5-hop INT header, and the long flow ends up favored.");
 }
 
 // ============================================================ 13 · generalization + robustness
@@ -537,7 +500,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.44, valign: "middle", margin: 0.04 });
   s.addText("† oracle-normalized (removes ECMP placement luck). Across 5 hash seeds the raw ratio is placement-dominated; RDMA-RCP ≤ stock at 4 of 5 seeds (the 5th is uncontended).", {
     x: 6.45, y: 3.75, w: 3.1, h: 1.1, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", margin: 0 });
-  s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — RDMA-RCP stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.");
+  s.addNotes("Robustness and generalization. Left: six perturbations — asymmetric sizes, staggered starts, including the 3.5x small-flow worst case — RDMA-RCP stays within about one percent of the oracle. Right: a 3-tier tree and a k=4 ECMP fat-tree, where the oracle-normalized penalty lands at 1.001; the path-min aggregation is inherently path-invariant, so ECMP needed no design work. Zero PFC across all of it.\n\nREADING THE CHART (left, horizontal bars). Rows: six N = 4 workload variants, from top: symmetric 50 MB; a big 200 MB long flow; a small 10 MB long flow; a 200 MB long flow against 10 MB cross flows; the long flow starting 3 ms early; the long flow joining late. Horizontal axis: relative penalty = the long-path flow’s slowdown divided by the short-path flows’ slowdown; the dashed line at 1.0 is the oracle. Red = stock HPCC, blue = RDMA-RCP. Blue stays within 1.0 ± 0.012 in every row. Red is about 1.8–2.0, and 3.53 for the small long flow.");
 }
 
 // ============================================================ 13b · coflow JCT
@@ -569,7 +532,7 @@ function chip(s, x, y, w, txt, fg, bg) {
       { text: t[1], options: { fontSize: 10.5, color: INK } },
     ], { x: 6.55, y: y + 0.08, w: 2.8, h: 0.86, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
-  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring coflow — one phase of a ring allreduce — across five ECMP hash seeds: RDMA-RCP cuts completion time 18 to 23 percent at every seed tested, and 18 percent survives padding the INT header to stock size, so the gain is fairness, not header thinness. On a saturating k-equals-6 fabric with 108 inter-pod flows, makespan improves 14 percent — 11 with the header padded — with Jain's index rising and zero PFC at 45 switches. And it compounds: the full 30-phase allreduce, scheduled with real per-rank pipelined dependencies rather than global barriers, finishes 21 percent sooner end-to-end — 22 barrier-synchronized, 17 with the padded header — stable across three ECMP placements. And the short background flows got three times faster — under near-winner-take-all dynamics, a short flow's fate is a placement lottery; max-min removes it.");
+  s.addNotes("So what does fairness buy on a workload operators care about? Collective communication: an allreduce step finishes when its slowest flow finishes, and the slowest flows are exactly the cross-pod multi-bottleneck ones stock HPCC starves. A 16-flow ring coflow — one phase of a ring allreduce — across five ECMP hash seeds: RDMA-RCP cuts completion time 18 to 23 percent at every seed tested, and 18 percent survives padding the INT header to stock size, so the gain is fairness, not header thinness. On a saturating k-equals-6 fabric with 108 inter-pod flows, makespan improves 14 percent — 11 with the header padded — with Jain's index rising and zero PFC at 45 switches. And it compounds: the full 30-phase allreduce, scheduled with real per-rank pipelined dependencies rather than global barriers, finishes 21 percent sooner end-to-end — 22 barrier-synchronized, 17 with the padded header — stable across three ECMP placements. And the short background flows got three times faster — under near-winner-take-all dynamics, a short flow's fate is a placement lottery; max-min removes it.\n\nREADING THE CHART. X axis: five ECMP hash seeds; each seed is a different placement of the 16 flows onto fat-tree paths. Y axis: job completion time (JCT) of one ring-allreduce phase in milliseconds, i.e. when the slowest of the 16 flows finishes. Lower is better. Red = stock HPCC, 22.3–23.3 ms; blue = RDMA-RCP, 17.9–18.0 ms at every seed. That is a 19.5–22.7% cut, nearly identical across placements.");
 }
 
 // ============================================================ 14 · defensibility
@@ -602,6 +565,74 @@ function chip(s, x, y, w, txt, fg, bg) {
   s.addText("Everything regenerates deterministically from the artifact — figures and tables are built from live runs.", {
     x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontSize: 12, italic: true, color: MUT, fontFace: "Calibri", align: "center" });
   s.addNotes("Three defensibility checks. One: disabling the window is necessary, not a convenience — put it back and the penalty returns, growing with path length, because HPCC's window is sized for the NIC, not the path. Two: we did not tune RCP — the textbook defaults, and one-at-a-time sweeps barely move the result. Three: the cost question — on HPCC's home turf, a single-bottleneck incast, a moderate startup rate makes RDMA-RCP match or beat HPCC's FCT while holding a quarter of the queue. On what we measured, the fairness mode is not a trade-off.");
+}
+
+// ============================================================ 14b · head-to-head: who is better at what
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Head to head", "HPCC vs. RDMA-RCP: each wins somewhere");
+  const col = (x, head, tint, bg, items) => {
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 1.3, w: 4.35, h: 2.95, fill: { color: bg }, rectRadius: 0.09, shadow: sh() });
+    s.addText(head, { x: x + 0.22, y: 1.42, w: 3.9, h: 0.36, fontSize: 15, bold: true, color: tint, fontFace: "Calibri", margin: 0 });
+    s.addText(items.map(([a, b], j) => [
+      { text: a, options: { bullet: true, bold: true, fontSize: 12.5, color: INK, paraSpaceAfter: 5 } },
+      { text: b, options: { softBreakBefore: true, fontSize: 11, color: MUT, breakLine: j < items.length - 1 } },
+    ]).flat(), { x: x + 0.22, y: 1.85, w: 3.95, h: 2.3, fontFace: "Calibri", margin: 0, valign: "top" });
+  };
+  col(0.55, "RDMA-RCP is better at", BLUE, BLUET, [
+    ["Multi-bottleneck fairness", "1.003–1.007× vs. 1.9–2.0× (3.5× small flows)"],
+    ["Every flow near its fair share", "within 5–13% of oracle vs. 1.4–2.9× spread"],
+    ["Collective job time", "−18–23% ring step; −21% full allreduce"],
+    ["Long paths", "one 8 B field at any length; HPCC breaks at 5 hops"],
+    ["Predictability", "same job time at every ECMP placement"],
+  ]);
+  col(5.1, "Stock HPCC is better at", RED, REDT, [
+    ["High fan-in (64–128 senders)", "0.92 utilization vs. 0.25–0.47 (0.70–0.84 tuned)"],
+    ["Reaction speed", "per-ACK, within one RTT vs. ~0.6 ms to settle"],
+    ["Short flows at default settings", "line-rate start vs. 1 Gbps cold start (~15% FCT)"],
+    ["Simple switches", "stateless INT stamping vs. per-port rate logic"],
+    ["Sharing a link", "runs alone; RCP needs its own slice"],
+  ]);
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.55, y: 4.4, w: 8.9, h: 0.85, fill: { color: NAVY }, rectRadius: 0.09 });
+  s.addText([
+    { text: "One real trade-off: ", options: { bold: true, color: ICE } },
+    { text: "fairness needs shared per-link rate state, which costs reaction speed and switch logic. ", options: { color: PAPER } },
+    { text: "The rest are tunable: control interval, startup rate, window, per-class telemetry.", options: { color: "9DB2D8" } },
+  ], { x: 0.8, y: 4.4, w: 8.4, h: 0.85, fontSize: 12.5, fontFace: "Calibri", valign: "middle", margin: 0 });
+  s.addNotes("So which is better? Neither, across the board. RDMA-RCP wins on everything fairness touches: the multi-bottleneck penalty drops from about two times to about one percent, every flow lands within 5 to 13 percent of its fair completion time, collective jobs finish 18 to 23 percent sooner, it keeps working on long paths where HPCC's telemetry overflows, and job time stops depending on where ECMP happened to place the flows. HPCC wins on speed and simplicity: under heavy incast, 64 or more senders into one link, it keeps the link 92 percent busy while our mode drops well below that; it reacts within one round trip instead of settling over about half a millisecond; short flows start at line rate; and its switches only stamp telemetry, with no per-port computation. Are these trade-offs? Only one is fundamental. Fairness across several bottlenecks needs one shared fair rate per link, and that shared state costs reaction speed and switch logic. Everything else is an engineering knob we measured: a longer control interval recovers most of the fan-in loss, a faster startup beats HPCC on its own incast benchmark, a fair-rate-sized window restores a hard cap, and per-class telemetry would let the two coexist.");
+}
+
+// ============================================================ 14c · which to use when
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Which to use when", "Match the controller to the traffic");
+  const card = (x, w, head, tint, bg, items, foot) => {
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 1.3, w, h: 3.4, fill: { color: bg }, rectRadius: 0.09, shadow: sh() });
+    s.addText(head, { x: x + 0.2, y: 1.42, w: w - 0.4, h: 0.36, fontSize: 14.5, bold: true, color: tint, fontFace: "Calibri", margin: 0 });
+    s.addText(items.map(([a, b], j) => [
+      { text: a, options: { bullet: true, bold: true, fontSize: 12, color: INK, paraSpaceAfter: 14 } },
+      { text: b, options: { softBreakBefore: true, fontSize: 11, color: MUT, breakLine: j < items.length - 1 } },
+    ]).flat(), { x: x + 0.2, y: 1.85, w: w - 0.35, h: 2.3, fontFace: "Calibri", margin: 0, valign: "top" });
+    s.addText(foot, { x: x + 0.2, y: 4.2, w: w - 0.4, h: 0.42, fontSize: 10, italic: true, color: tint, fontFace: "Calibri", margin: 0, valign: "middle" });
+  };
+  card(0.55, 3.0, "Choose RDMA-RCP for", BLUE, BLUET, [
+    ["ML collectives across pods", "a step ends with its slowest flow"],
+    ["Many contended hops per path", "multi-tier, long paths"],
+    ["Tenants that need a predictable share", "fair rate, placement-independent"],
+  ], "on its own fabric or slice");
+  card(3.7, 3.0, "Choose stock HPCC for", RED, REDT, [
+    ["Incast-heavy storage & aggregation", "64+ senders into one link"],
+    ["Latency-critical short RPCs", "line-rate start, per-RTT reaction"],
+    ["Switches without stateful per-port logic", "INT stamping only"],
+  ], "the single-bottleneck regime it was built for");
+  card(6.85, 2.6, "Need both? Slice it", NAVY, ICET, [
+    ["Per-class telemetry", "each controller sees only its class"],
+    ["Collectives → RCP class", "incast and RPCs → HPCC class"],
+    ["Future: one hybrid", "rate = min(HPCC rate, fair rate)"],
+  ], "unsliced sharing fails, even under DRR");
+  s.addText("Guidance follows from what we measured in simulation; a hardware deployment is the next step.", {
+    x: 0.55, y: 4.85, w: 8.9, h: 0.35, fontSize: 11.5, italic: true, color: MUT, fontFace: "Calibri", align: "center", margin: 0 });
+  s.addNotes("Turning those differences into advice. Use RDMA-RCP where fairness across several links decides the outcome. The clearest case is ML training across pods: an allreduce step finishes only when its slowest flow does, and the slow flows are exactly the multi-bottleneck ones HPCC squeezes. The same goes for any traffic that crosses many contended tiers, and for multi-tenant fabrics where a tenant should get a predictable share no matter where ECMP puts it. Run it on its own fabric or slice. Keep stock HPCC where its strengths matter: incast-heavy storage and partition-aggregate traffic with dozens of senders into one link, latency-critical short RPCs that benefit from line-rate start and per-round-trip reaction, and switches that can stamp telemetry but can't run per-port rate logic. If one fabric needs both, slice it: give each class its own telemetry so neither controller is misled by the other's traffic, send collectives to the RCP class and incast and RPCs to the HPCC class. We measured that simply sharing a link fails, even with a weighted scheduler. Longer term, the hybrid in our future work would cap HPCC at the fair rate and keep both properties. To be clear, this guidance comes from our simulation results; validating it on hardware is the next step.");
 }
 
 // ============================================================ 15 · honesty
@@ -731,6 +762,61 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "an R register in integer Mbps deadlocks floor recovery (growth truncates below ~2.5 Mbps). Kbps units remove it \u2014 we make 1 Kbps the required granularity; 32-bit unsigned Kbps spans 4.3 Tbps.", options: { fontSize: 12, color: INK } },
   ], { x: 0.85, y: 4.5, w: 8.35, h: 0.65, fontFace: "Calibri", valign: "middle", margin: 0 });
   s.addNotes("For the dataplane-feasibility question: we did not build a Tofino prototype, and we say so \u2014 whether the interval test and rate update serialize inside one atomic stage is explicitly unverified, as is dequeue-time queue-depth access. What we did do is remove every arithmetic excuse: a divider-free Q16 integer build of the whole update \u2014 shift-plus-mantissa reciprocal, max error twenty-five percent \u2014 reproduces the headline results within a tenth of a percent penalty. And the exercise caught a genuine deployment hazard: keep the rate register in integer megabits and the floor-recovery path deadlocks \u2014 growth truncates to zero below about 2.5 megabits. Units, not width, were the binding choice: kilobit granularity fixes it, and 32 bits of Kbps still spans 4.3 terabits. That hazard is exactly the kind of thing you want to find in simulation before tape-out.");
+}
+
+// ============================================================ 20 · BACKUP: HPCC's rate update
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Backup", "How HPCC lowers and raises its rate");
+  // the rule
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.35, w: 8.85, h: 0.85, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "R_new = R_ref · (η / U) + R_AI", options: { fontSize: 22, bold: true, color: NAVY, fontFace: "Cambria", breakLine: true } },
+    { text: "U = max over hops of u_i (from INT), EWMA over one RTT · η = 0.95 · R_AI = 40 Mb/s", options: { fontSize: 11.5, color: MUT, fontFace: "Calibri" } },
+  ], { x: 0.85, y: 1.38, w: 8.4, h: 0.8, valign: "middle", margin: 0 });
+  // down / up / hold table
+  const hdr = (t, al) => ({ text: t, options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 12, align: al || "left" } });
+  const rows = [
+    [hdr("case"), hdr("what happens"), hdr("example", "center")],
+    [{ text: "Down: U > η", options: { bold: true, color: RED } }, "factor η/U < 1 — cut in proportion to the overload", { text: "U = 1.10 → ×0.86", options: { align: "center" } }],
+    [{ text: "Up: U < η", options: { bold: true, color: BLUE } }, "factor η/U > 1 — multiplicative growth into the headroom, plus R_AI", { text: "U = 0.50 → ×1.9", options: { align: "center" } }],
+    [{ text: "Hold: U ≈ η", options: { bold: true, color: NAVY } }, "factor ≈ 1 — only +40 Mb/s; the small overshoot is cut back (~×0.99)", { text: "η-hold", options: { align: "center", bold: true } }],
+  ];
+  s.addTable(rows, { x: 0.6, y: 2.38, w: 8.85, colW: [1.75, 5.35, 1.75], fontFace: "Calibri", fontSize: 11.5,
+    color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.4, valign: "middle", margin: 0.06 });
+  s.addText("Timing: one committed update per RTT (reference R_ref); every other ACK reacts against R_ref without compounding. Packets are paced at R, in-flight bytes capped by W = W_max · R / NIC.", {
+    x: 0.6, y: 4.08, w: 8.85, h: 0.4, fontSize: 10.5, italic: true, color: MUT, fontFace: "Calibri", margin: 0 });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.6, w: 8.85, h: 0.72, fill: { color: REDT }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "Why the long flow loses: ", options: { bold: true, fontSize: 12.5, color: RED } },
+    { text: "down — U is the max over its N hops, so any link’s overshoot cuts it; up — everyone grows by the same factor + the same R_AI, so ratios persist; hold — the factor is 1, nothing redistributes.", options: { fontSize: 12, color: INK } },
+  ], { x: 0.85, y: 4.63, w: 8.35, h: 0.66, fontFace: "Calibri", valign: "middle", margin: 0 });
+  s.addNotes("If someone asks how HPCC actually moves its rate: it is one rule for both directions. The sender takes the utilization of the busiest hop on its path from INT, divides the target eta by it, and scales its reference rate by that factor, plus a small 40 megabit additive step. Over target, the factor is below one and the cut is proportional to the overload. Under target, the factor is above one and the rate grows multiplicatively into the headroom. At exactly eta the factor is one and only the additive step remains — that is the eta-hold. The rate is committed once per RTT; intermediate ACKs react against the committed value so one congestion event is not counted many times. For the multi-bottleneck flow, all three cases work against it: it takes the max over N hops on the way down, gets only the same proportional growth on the way up, and at hold nothing moves.");
+}
+
+// ============================================================ 21 · BACKUP: the six sender-only designs
+{
+  const s = p.addSlide(); s.background = { color: PAPER };
+  titleBar(s, "Backup", "Inside the six sender-only designs");
+  const hdr = (t, al) => ({ text: t, options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 11, align: al || "left" } });
+  const res = (t) => ({ text: t, options: { align: "center", bold: true, color: RED } });
+  const rows = [
+    [hdr("mb_mode · design"), hdr("change to R = R·(1/c) + R_AI"), hdr("N=4", "center"), hdr("why it fails")],
+    ["1 · k-aware AI", "R_AI × γ·k  (k = congested hops on the path)", res("1.63×"), "additive: ~10⁴ RTTs to close the gap (best at γ = 50)"],
+    ["2 · max/mean blend", "U = (1−γ)·max u_i + γ·mean u_i", res("1.95×"), "at hold every u_i ≈ η — blend changes nothing"],
+    ["3 · responsibility MD", "cut = 1 − share·(1 − 1/c)", res("1.89×"), "MD rarely fires at η-hold"],
+    ["4 · k-th-root MD", "cut = (1/c)^(1/k)", res("1.92×"), "MD rarely fires at η-hold"],
+    ["5 · share-aware AI", "R_AI × 2γ(1 − share) for every flow", res("1.71×"), "still additive — too slow"],
+    ["6 · private RCP mirror", "run the switch’s RCP law per hop from own INT samples; send at min R̂_i", res("1.56×"), "private state keeps arrival history: 1.65× / 0.81× staggered"],
+  ];
+  s.addTable(rows, { x: 0.45, y: 1.35, w: 9.1, colW: [2.0, 3.4, 0.75, 2.95], fontFace: "Calibri", fontSize: 10.5,
+    color: INK, border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.42, valign: "middle", margin: 0.05 });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.45, y: 4.5, w: 9.1, h: 0.75, fill: { color: BLUET }, rectRadius: 0.09, shadow: sh() });
+  s.addText([
+    { text: "Same RCP law at the switch: 1.003–1.008×. ", options: { bold: true, fontSize: 12.5, color: BLUE } },
+    { text: "Modes 1–5 fight η-hold with knobs it ignores; mode 6 has the right law but private state. mb_mode 0 is byte-identical to stock HPCC.", options: { fontSize: 12, color: INK } },
+  ], { x: 0.7, y: 4.55, w: 8.6, h: 0.65, fontFace: "Calibri", valign: "middle", margin: 0 });
+  s.addNotes("If asked what exactly we tried at the sender: every design is a small change to HPCC's own update, behind an mb_mode knob, with mode zero byte-identical to stock. Modes one and five boost the additive step — for multi-hop flows, or for flows with a small share — but additive recovery needs on the order of ten thousand RTTs; best case 1.63. Mode two blends the max-hop utilization with the mean, but at eta-hold every hop reads about eta, so the blend changes nothing: 1.95. Modes three and four soften the multiplicative decrease for the multi-hop flow, but the decrease barely fires at the hold point: 1.89 and 1.92. Mode six is the strongest: the sender runs the switch's exact RCP recursion privately, per hop, from its own INT samples, and sends at the minimum. It still reaches only 1.56 synchronized, and 1.65 or 0.81 when one side arrives late — the direction set by arrival order. The identical law in the switch holds 1.0. That is the placement result: same law, same inputs, different location of state.");
 }
 
 p.writeFile({ fileName: "ipccc2026-talk.pptx" })

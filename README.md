@@ -122,7 +122,7 @@ committed config snapshot.
 | `paper.pdf` | Compiled 10-page paper (ACM `acmart` sigconf), ready to view |
 | `paper.tex` + `paper.bib` | LaTeX sources |
 | `paper-ipccc.pdf` + `paper-ipccc.tex` | IEEE-format version, same content — submitted to IEEE IPCCC 2026 as "Multi-Bottleneck Fairness on RDMA Fabrics: An Empirical Study of Deployable Congestion Control and an RCP Service Mode over In-Network Telemetry" |
-| `talk/ipccc2026-talk.pptx` | Conference talk slides (24 slides, speaker notes) |
+| `talk/ipccc2026-talk.pptx` | Conference talk slides (27 slides, speaker notes) |
 | `talk/ipccc2026-talk.pdf` | Same deck as PDF |
 | `talk/ipccc2026-talk-notes.pdf` | Speaker-notes companion: each slide with its talking points |
 | `talk/render_pdf.js` | Renders both PDFs from `build_deck.js` via headless Chrome (`node render_pdf.js`) |
