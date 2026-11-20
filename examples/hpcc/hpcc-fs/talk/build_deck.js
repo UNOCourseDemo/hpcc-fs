@@ -337,27 +337,41 @@ function chip(s, x, y, w, txt, fg, bg) {
 {
   const s = p.addSlide(); s.background = { color: PAPER };
   titleBar(s, "The alternative, part 1", "RCP: the link advertises one fair rate to every flow");
-  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.5, w: 8.85, h: 1.0, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
+  s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.32, w: 8.85, h: 0.78, fill: { color: ICET }, rectRadius: 0.09, shadow: sh() });
   s.addText("R ← R · (1 + (α·(C − y) − β·q/d) / C)", {
-    x: 0.85, y: 1.6, w: 8.35, h: 0.8, fontSize: 19, bold: true, color: NAVY, fontFace: "Courier New", align: "center", valign: "middle" });
+    x: 0.85, y: 1.35, w: 8.35, h: 0.72, fontSize: 19, bold: true, color: NAVY, fontFace: "Courier New", align: "center", valign: "middle" });
+  // what each symbol stands for
+  const vh = (t) => ({ text: t, options: { bold: true, color: PAPER, fill: { color: NAVY }, fontSize: 11 } });
+  const sym = (t) => ({ text: t, options: { bold: true, color: NAVY, fontFace: "Courier New", fontSize: 12, align: "center" } });
+  s.addTable([
+    [vh("symbol"), vh("what it stands for")],
+    [sym("R"), "the link’s fair rate: what every flow crossing it should send"],
+    [sym("C"), "link capacity, e.g. 25 Gbps"],
+    [sym("y"), "traffic that arrived at the port in the last interval"],
+    [sym("q"), "bytes waiting in the queue right now"],
+    [sym("d"), "control interval: how often R is updated (≈ one RTT)"],
+    [sym("α"), "0.4: how strongly R chases spare capacity"],
+    [sym("β"), "0.226: how strongly R drains a standing queue"],
+  ], { x: 0.6, y: 2.3, w: 5.25, colW: [0.8, 4.45], fontFace: "Calibri", fontSize: 10.5, color: INK,
+       border: { pt: 0.75, color: "D5DCE6" }, fill: { color: PAPER }, rowH: 0.275, valign: "middle", margin: 0.04 });
   const ann = [
-    ["α·(C − y)", "chases spare capacity — link under-full ⇒ R rises", BLUE, BLUET],
-    ["β·q/d", "brakes on backlog — queue forms ⇒ R falls", RED, REDT],
-    ["fixed point", "y = C, q = 0  ⇒  N·R = C  ⇒  R = C/N", GREENOK, "E9F4EC"],
+    ["α·(C − y)", "spare capacity: link under-full ⇒ R rises", BLUE, BLUET],
+    ["β·q/d", "queue drain: a backlog forms ⇒ R falls", RED, REDT],
+    ["fixed point", "y = C, q = 0 ⇒ N·R = C ⇒ R = C/N", GREENOK, "E9F4EC"],
   ];
   ann.forEach((a, i) => {
-    const x = 0.6 + i * 3.05;
-    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x, y: 2.85, w: 2.8, h: 1.35, fill: { color: a[3] }, rectRadius: 0.09, shadow: sh() });
+    const y = 2.3 + i * 0.76;
+    s.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 6.05, y, w: 3.4, h: 0.66, fill: { color: a[3] }, rectRadius: 0.08, shadow: sh() });
     s.addText([
-      { text: a[0], options: { bold: true, fontSize: 15, color: a[2], fontFace: "Courier New", breakLine: true, paraSpaceAfter: 4 } },
-      { text: a[1], options: { fontSize: 11.5, color: INK } },
-    ], { x: x + 0.22, y: 3.03, w: 2.4, h: 1.05, fontFace: "Calibri", margin: 0, valign: "top" });
+      { text: a[0], options: { bold: true, fontSize: 13, color: a[2], fontFace: "Courier New", breakLine: true } },
+      { text: a[1], options: { fontSize: 10.5, color: INK } },
+    ], { x: 6.2, y: y + 0.03, w: 3.15, h: 0.6, fontFace: "Calibri", margin: 0, valign: "middle" });
   });
   s.addText([
-    { text: "The link converges to the max-min share ", options: { fontSize: 15, color: INK, bold: true } },
-    { text: "without ever counting flows", options: { fontSize: 15, color: BLUE, bold: true, italic: true } },
-    { text: " — N is implicit in the observed load y.", options: { fontSize: 15, color: INK, bold: true } },
-  ], { x: 0.6, y: 4.5, w: 8.85, h: 0.65, fontFace: "Calibri", align: "center" });
+    { text: "The link converges to the max-min share ", options: { fontSize: 14, color: INK, bold: true } },
+    { text: "without ever counting flows", options: { fontSize: 14, color: BLUE, bold: true, italic: true } },
+    { text: " — N is implicit in y / R.", options: { fontSize: 14, color: INK, bold: true } },
+  ], { x: 0.6, y: 4.78, w: 8.85, h: 0.5, fontFace: "Calibri", align: "center" });
   s.addNotes("RCP in one equation. Each link keeps a single rate R — the rate every flow crossing it should send at. Alpha chases spare capacity upward, beta brakes on queue. Those balance only when the link is exactly full with no standing queue — which with N flows each sending R means N times R equals C. So R converges to C over N without the switch ever counting flows: N is implicit in the load. This is exactly the missing ingredient from the previous slide, computed exactly where it's observable.\n\nREADING THE EQUATION (matches the RCP primer). R is the link's fair rate. The outer form R·(1 + correction/C) changes R by a percentage of capacity. The correction has two forces. α·(C − y), spare capacity: y is the traffic that arrived in the last interval; positive spare pushes R up. β·q/d, queue drain: q is the backlog, d the control interval (about one RTT); a standing queue pushes R down. α = 0.4 and β = 0.226 are RCP's published defaults.\n\nTHE HIDDEN FLOW COUNT. Each of the N flows sends about R, so y ≈ N·R, and y/R is the link's implicit estimate of N. The rule rests only at R = C / (y/R), the fair share. Example: 25 Gbps, 4 flows, R starting at 12.5 falls to within 1% of 6.25 in about 7 intervals, without ever counting flows.");
 }
 
@@ -663,7 +677,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "rate = min(rate_HPCC, fairRate)", options: { fontSize: 13.5, color: NAVY, fontFace: "Courier New" } },
     { text: " — keep HPCC’s speed and the fairness. Fair-rate-sized window: shown. Stability: open.", options: { fontSize: 13.5, color: NAVY } },
   ], { x: 0.85, y: 4.47, w: 8.35, h: 0.72, fontFace: "Calibri", valign: "middle", margin: 0 });
-  s.addNotes("We are deliberately explicit about scope. The mechanism is RCP — our contribution is showing where the fix has to live and that placing it there is cheap. The evaluation is simulation-only; we re-ported the HPCC simulator onto modern ns-3 and verified it reproduces the original paper's baselines before building on it. If asked about PowerTCP: it IS evaluated — we ported the authors' reference implementation, validated it solo and pairwise, and it shows the same multi-bottleneck gap, 1.79 to 1.86. Bolt remains the one modern scheme we did not port. Convergence is milliseconds, not one round trip. And both controllers produce a rate, so do we really have to choose? The natural next step is the hybrid: send at the minimum of HPCC's rate and the fair rate. The ceiling caps the flows that took too much, which frees capacity and pulls HPCC out of its frozen hold state, so HPCC's own fast loop lifts the starved flow while keeping its quick reaction to incast. It needs a window sized to the fair rate, which we have already shown works, and a stability analysis we have not done. If it holds, it targets the case neither controller handles alone: clusters where cross-pod collectives and storage incast share the same links.\n\nKEY TERMS. Bolt: a newer sub-RTT congestion control (NSDI 2023) we did not port. Testbed: real hardware; all our results are simulation. Port-validated: we checked our PowerTCP port against the authors' code on solo and two-flow cases before using it. Convergence ~30 RTTs: RDMA-RCP needs about 0.6 ms to get within 5% of the fair share; HPCC reacts within one RTT but never learns the fair share.");
+  s.addNotes("We are deliberately explicit about scope. The mechanism is RCP — our contribution is showing where fairness has to live and that placing it there is cheap. The evaluation is simulation-only; we re-ported the HPCC simulator onto modern ns-3 and verified it reproduces the original paper's baselines before building on it. If asked about PowerTCP: it IS evaluated — we ported the authors' reference implementation, validated it solo and pairwise, and it shows the same multi-bottleneck gap, 1.79 to 1.86. Bolt remains the one modern scheme we did not port. Convergence is milliseconds, not one round trip. And both controllers produce a rate, so do we really have to choose? The natural next step is the hybrid: send at the minimum of HPCC's rate and the fair rate. The ceiling caps the flows that took too much, which frees capacity and pulls HPCC out of its frozen hold state, so HPCC's own fast loop lifts the starved flow while keeping its quick reaction to incast. It needs a window sized to the fair rate, which we have already shown works, and a stability analysis we have not done. If it holds, it targets the case neither controller handles alone: clusters where cross-pod collectives and storage incast share the same links.\n\nKEY TERMS. Bolt: a newer sub-RTT congestion control (NSDI 2023) we did not port. Testbed: real hardware; all our results are simulation. Port-validated: we checked our PowerTCP port against the authors' code on solo and two-flow cases before using it. Convergence ~30 RTTs: RDMA-RCP needs about 0.6 ms to get within 5% of the fair share; HPCC reacts within one RTT but never learns the fair share.");
 }
 
 // ============================================================ 16 · conclusion (dark)
@@ -672,8 +686,8 @@ function chip(s, x, y, w, txt, fg, bg) {
   titleBar(s, "Conclusion", "Fairness needs the link — and the choice is about traffic", true);
   const rows = [
     ["The gap", "Every deployable scheme we tested gives a multi-bottleneck flow about half its fair share (1.6–2.3×). It is the equilibrium, not a bug.", RED],
-    ["Why", "The sender can’t fix it: private rate state remembers arrival history. One shared fair rate per link erases it.", ICE],
-    ["The fix", "RDMA-RCP: one 8 B field, one scalar per port. 1.005×, zero PFC, collectives 18–23% faster; stock HPCC untouched.", BLUE],
+    ["Why", "Sender-side changes can’t close the gap: private rate state remembers arrival history. One shared fair rate per link erases it.", ICE],
+    ["The alternative", "RDMA-RCP, an RCP mode beside stock HPCC: one 8 B field, one scalar per port. 1.005×, zero PFC, collectives 18–23% faster.", BLUE],
     ["The choice", "One real trade-off: shared state costs speed. Match the controller to the traffic, then combine the two.", GREENOK],
   ];
   rows.forEach((r, i) => {
@@ -690,7 +704,7 @@ function chip(s, x, y, w, txt, fg, bg) {
     { text: "10.6084/m9.figshare.34330836", options: { fontSize: 12.5, bold: true, color: ICE, fontFace: "Courier New" } },
   ], { x: 0.6, y: 4.75, w: 8.85, h: 0.4, fontFace: "Calibri", align: "center" });
   s.addText("Thank you — questions?", { x: 0.6, y: 5.12, w: 8.85, h: 0.4, fontSize: 15, bold: true, color: PAPER, fontFace: "Cambria", align: "center" });
-  s.addNotes("To close, the whole story in four lines. The gap: every deployable scheme we tested, HPCC included, gives a flow that crosses several bottlenecks about half its fair share, and it's the equilibrium, not a bug. Why: the sender can't fix it, because private rate state remembers arrival history; one shared fair rate per link erases it. The fix: one 8-byte field and one number per switch port bring fairness to within half a percent, with zero PFC, and collective jobs finish 18 to 23 percent sooner, while stock HPCC stays untouched. The choice: there is one real trade-off, shared state costs reaction speed, so match the controller to the traffic, and next, combine the two. HPCC is excellent at the problem it was built for. We measured the problem next to it, showed why the fix has to live at the link, and found that the choice between the two kinds of control is really a choice about traffic, one we may not have to make for much longer.");
+  s.addNotes("To close, the whole story in four lines. The gap: every deployable scheme we tested, HPCC included, gives a flow that crosses several bottlenecks about half its fair share, and it's the equilibrium, not a bug. Why: sender-side changes can't close the gap, because private rate state remembers arrival history; one shared fair rate per link erases it. The alternative: RDMA-RCP, an RCP service mode that runs beside stock HPCC rather than replacing or repairing it. One 8-byte field and one number per switch port bring fairness to within half a percent, with zero PFC, and collective jobs finish 18 to 23 percent sooner. The choice: there is one real trade-off, shared state costs reaction speed, so match the controller to the traffic, and next, combine the two. HPCC is excellent at the problem it was built for. We measured the problem next to it, showed why fairness has to live at the link, and found that the choice between the two kinds of control is really a choice about traffic, one we may not have to make for much longer.");
 }
 
 // ============================================================ 17 · BACKUP: reproduction
